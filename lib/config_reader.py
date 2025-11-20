@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     host: SecretStr
     port: SecretStr
     user: SecretStr
+    bot_token: SecretStr
+    group_id: SecretStr
 
     @classmethod
     def settings_customise_sources(

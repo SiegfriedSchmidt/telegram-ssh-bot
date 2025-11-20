@@ -1,0 +1,13 @@
+services:
+  tg-ssh-bot:
+    platform: linux/amd64
+    build: .
+    image: siegfriedschmidt/telegram-ssh-bot
+    container_name: telegram-ssh-bot
+    environment:
+      - SECRET_FOLDER_PATH=/app/.secret
+      - TZ=Europe/Moscow
+    volumes:
+      - ./secret:/app/secret
+
+    restart: "no"

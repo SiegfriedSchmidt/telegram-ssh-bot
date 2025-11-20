@@ -8,4 +8,8 @@ certs
 cert
 .secret
 .secrets
+tests
+test
+secret
+secrets
 
