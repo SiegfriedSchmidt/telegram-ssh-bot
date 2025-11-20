@@ -18,6 +18,7 @@ async def help(message: types.Message, state: FSMContext):
 /down project_name
 /update
 /prune
+/htop
 '''
                          )
 
@@ -25,7 +26,7 @@ async def help(message: types.Message, state: FSMContext):
 @router.message(Command("ps"))
 async def ps(message: types.Message, database: Database, state: FSMContext):
     containers = database.ssh_manager.get_docker_ps()
-    await message.answer('\n'.join(containers))
+    await message.answer(f"```docker\n{'\n\n'.join(containers)}```", parse_mode='MarkdownV2')
 
 
 @router.message(Command("projects"))
@@ -52,6 +53,9 @@ async def down_project(message: types.Message, command: CommandObject, database:
     args = command.args.split()
     if len(args) > 1:
         return await message.answer('too many args!')
+
+    if args[0] == "telegram-ssh-bot":
+        return await message.answer("Nah, you won't do that!")
 
     error = database.ssh_manager.down_project(args[0])
 
@@ -82,6 +86,12 @@ async def update(message: types.Message, database: Database, state: FSMContext):
     else:
         await message.answer('abort')
     return await state.clear()
+
+
+@router.message(Command("htop"))
+async def meme(message: types.Message, database: Database, state: FSMContext):
+    result = database.ssh_manager.htop()
+    return await message.answer(result)
 
 
 @router.message(Command("niggachain"))

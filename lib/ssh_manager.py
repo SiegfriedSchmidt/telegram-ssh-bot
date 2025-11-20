@@ -19,7 +19,8 @@ class SSHManager:
     def get_docker_ps(self) -> List[str]:
         result, error = self.run_ssh_command("docker ps -s --format json")
         containers = json.loads(f'[{','.join(result.splitlines())}]')
-        return [container['Image'] for container in containers]
+        pad = len(max(containers, key=lambda c: len(c['Image']))['Image'])
+        return [f"{c["Image"].ljust(pad, ' ')} {c['Names']}" for c in containers]
 
     def get_docker_projects(self) -> List[str]:
         result, error = self.run_ssh_command(f"ls {proj}")
@@ -46,6 +47,10 @@ nohup sh -c '
 
     def docker_prune(self):
         result, error = self.run_ssh_command("docker system prune -f")
+        return result
+
+    def htop(self):
+        result, error = self.run_ssh_command("free -h")
         return result
 
     def run_ssh_command(self, command: str) -> Tuple[str, str]:
