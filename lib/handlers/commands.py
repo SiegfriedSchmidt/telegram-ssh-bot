@@ -7,13 +7,13 @@ from lib.database import Database
 router = Router()
 
 
-@router.message(Command("help"))
+@router.message(Command("h"))
 async def help(message: types.Message, state: FSMContext):
     await message.answer('''
-/help
+/h
 /ps
 /projects
-/start project_name
+/run project_name
 /prune
 '''
                          )
@@ -31,13 +31,26 @@ async def projects(message: types.Message, database: Database, state: FSMContext
     await message.answer('\n'.join(docker_projects))
 
 
-@router.message(Command("start"))
+@router.message(Command("run"))
 async def start_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
     args = command.args.split()
     if len(args) > 1:
         return await message.answer('too many args!')
 
-    error = database.ssh_manager.start_projects(args[0])
+    error = database.ssh_manager.start_project(args[0])
+
+    if error:
+        return await message.answer(error)
+    return await message.answer('good')
+
+
+@router.message(Command("stop"))
+async def stop_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
+    args = command.args.split()
+    if len(args) > 1:
+        return await message.answer('too many args!')
+
+    error = database.ssh_manager.stop_project(args[0])
 
     if error:
         return await message.answer(error)
@@ -45,8 +58,13 @@ async def start_project(message: types.Message, command: CommandObject, database
 
 
 @router.message(Command("prune"))
-async def prune(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
+async def prune(message: types.Message, database: Database, state: FSMContext):
     result = database.ssh_manager.docker_prune()
     if result:
         return await message.answer(result)
     return await message.answer('no output')
+
+
+@router.message(Command("niggachain"))
+async def prune(message: types.Message, state: FSMContext):
+    return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')

@@ -15,7 +15,7 @@ class SSHManager:
         self.key = paramiko.Ed25519Key.from_private_key_file(key_path)
 
     def get_docker_ps(self) -> List[str]:
-        result, error = self.run_ssh_command("docker ps -as --format json")
+        result, error = self.run_ssh_command("docker ps -s --format json")
         containers = json.loads(f'[{','.join(result.splitlines())}]')
         return [container['Image'] for container in containers]
 
@@ -23,8 +23,12 @@ class SSHManager:
         result, error = self.run_ssh_command("ls /home/DockerProjects")
         return result.splitlines()
 
-    def start_projects(self, project_name: str) -> str:
+    def start_project(self, project_name: str) -> str:
         result, error = self.run_ssh_command(f"cd /home/DockerProjects/{project_name} && docker compose up -d")
+        return error
+
+    def stop_project(self, project_name: str) -> str:
+        result, error = self.run_ssh_command(f"cd /home/DockerProjects/{project_name} && docker compose down")
         return error
 
     def docker_prune(self):
