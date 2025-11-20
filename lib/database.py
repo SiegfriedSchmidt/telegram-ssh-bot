@@ -11,7 +11,7 @@ class User:
 class Database:
     def __init__(self):
         self.users: dict[int, User] = dict()
-        self.ssh_manager = SSHManager(
+        self.ssh_manager: SSHManager = SSHManager(
             config.host.get_secret_value(),
             config.port.get_secret_value(),
             config.user.get_secret_value(),

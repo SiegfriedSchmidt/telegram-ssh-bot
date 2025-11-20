@@ -3,6 +3,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 
 from lib.database import Database
+from lib.states.confirmation_state import ConfirmationState
 
 router = Router()
 
@@ -13,7 +14,9 @@ async def help(message: types.Message, state: FSMContext):
 /h
 /ps
 /projects
-/run project_name
+/up project_name
+/down project_name
+/update
 /prune
 '''
                          )
@@ -31,26 +34,26 @@ async def projects(message: types.Message, database: Database, state: FSMContext
     await message.answer('\n'.join(docker_projects))
 
 
-@router.message(Command("run"))
-async def start_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
+@router.message(Command("up"))
+async def up_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
     args = command.args.split()
     if len(args) > 1:
         return await message.answer('too many args!')
 
-    error = database.ssh_manager.start_project(args[0])
+    error = database.ssh_manager.up_project(args[0])
 
     if error:
         return await message.answer(error)
     return await message.answer('good')
 
 
-@router.message(Command("stop"))
-async def stop_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
+@router.message(Command("down"))
+async def down_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
     args = command.args.split()
     if len(args) > 1:
         return await message.answer('too many args!')
 
-    error = database.ssh_manager.stop_project(args[0])
+    error = database.ssh_manager.down_project(args[0])
 
     if error:
         return await message.answer(error)
@@ -65,6 +68,22 @@ async def prune(message: types.Message, database: Database, state: FSMContext):
     return await message.answer('no output')
 
 
+@router.message(Command("update"))
+async def update_ask(message: types.Message, database: Database, state: FSMContext):
+    await state.set_state(ConfirmationState.update_confirmation)
+    return await message.answer('Do you want to continue (y/n)?')
+
+
+@router.message(ConfirmationState.update_confirmation)
+async def update(message: types.Message, database: Database, state: FSMContext):
+    if message.text == "y":
+        await message.answer('performing image update...')
+        database.ssh_manager.update()
+    else:
+        await message.answer('abort')
+    return await state.clear()
+
+
 @router.message(Command("niggachain"))
-async def prune(message: types.Message, state: FSMContext):
+async def meme(message: types.Message, state: FSMContext):
     return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')

@@ -6,6 +6,8 @@ import paramiko
 from lib.config_reader import config
 from lib.init import key_path
 
+proj = "/home/DockerProjects"
+
 
 class SSHManager:
     def __init__(self, host: str, port: str | int, user: str, key_path: str):
@@ -20,16 +22,27 @@ class SSHManager:
         return [container['Image'] for container in containers]
 
     def get_docker_projects(self) -> List[str]:
-        result, error = self.run_ssh_command("ls /home/DockerProjects")
+        result, error = self.run_ssh_command(f"ls {proj}")
         return result.splitlines()
 
-    def start_project(self, project_name: str) -> str:
-        result, error = self.run_ssh_command(f"cd /home/DockerProjects/{project_name} && docker compose up -d")
+    def up_project(self, project_name: str) -> str:
+        result, error = self.run_ssh_command(f"cd {proj}/{project_name} && docker compose up -d")
         return error
 
-    def stop_project(self, project_name: str) -> str:
-        result, error = self.run_ssh_command(f"cd /home/DockerProjects/{project_name} && docker compose down")
+    def down_project(self, project_name: str) -> str:
+        result, error = self.run_ssh_command(f"cd {proj}/{project_name} && docker compose down")
         return error
+
+    def update(self):
+        result, error = self.run_ssh_command(f"""
+nohup sh -c '
+    cd {proj}/telegram-ssh-bot &&
+    docker compose pull &&
+    docker compose down &&
+    docker compose up -d
+' >/tmp/bot_update.log 2>&1 &
+""")
+        return result
 
     def docker_prune(self):
         result, error = self.run_ssh_command("docker system prune -f")
