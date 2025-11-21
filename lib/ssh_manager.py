@@ -45,6 +45,15 @@ nohup sh -c '
 """)
         return result
 
+    # youruser ALL=(ALL) NOPASSWD: /usr/sbin/reboot
+    def reboot(self):
+        result, error = self.run_ssh_command(f"""
+        nohup sh -c '
+            sudo reboot
+        ' >/tmp/bot_update.log 2>&1 &
+        """)
+        return result
+
     def docker_prune(self):
         result, error = self.run_ssh_command("docker system prune -f")
         return result

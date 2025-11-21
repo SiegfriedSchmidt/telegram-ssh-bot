@@ -17,6 +17,7 @@ async def help(message: types.Message, state: FSMContext):
 /up project_name
 /down project_name
 /update
+/reboot
 /prune
 /htop
 '''
@@ -83,6 +84,22 @@ async def update(message: types.Message, database: Database, state: FSMContext):
     if message.text == "y":
         await message.answer('performing image update...')
         database.ssh_manager.update()
+    else:
+        await message.answer('abort')
+    return await state.clear()
+
+
+@router.message(Command("reboot"))
+async def reboot_ask(message: types.Message, database: Database, state: FSMContext):
+    await state.set_state(ConfirmationState.reboot_confirmation)
+    return await message.answer('Do you want to continue (y/n)?')
+
+
+@router.message(ConfirmationState.reboot_confirmation)
+async def reboot(message: types.Message, database: Database, state: FSMContext):
+    if message.text.lower() == "bipki":
+        await message.answer('performing reboot...')
+        database.ssh_manager.reboot()
     else:
         await message.answer('abort')
     return await state.clear()
