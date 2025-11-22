@@ -13,6 +13,6 @@ async def admin_message(message: types.Message):
     return await message.reply(f"Кто-то сказал admin?!")
 
 
-@router.message(F.text.lower().contains('bipki'))
+@router.message(F.text.lower().contains('bipki') | F.text.lower().contains('бипки'))
 async def bipki_message(message: types.Message):
     await message.react([ReactionTypeEmoji(emoji='🔥')])

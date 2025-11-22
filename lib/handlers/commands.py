@@ -5,27 +5,32 @@ from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile
 
+from lib.api.joke_api import get_joke
+from lib.api.meme_api import get_meme
 from lib.database import Database
 from lib.init import data_folder_path
 from lib.states.confirmation_state import ConfirmationState
+from lib.utils.utils import get_args
 
 router = Router()
 
 
 @router.message(Command("h"))
-async def help(message: types.Message, state: FSMContext):
+async def h(message: types.Message, state: FSMContext):
     await message.answer('''
 /h
 /ps
 /projects
-/up project_name
-/down project_name
+/up {project_name:required}
+/down {project_name:required}
 /update
 /reboot
 /prune
 /htop
 /upload_faq
 /faq
+/joke {joke_type:optional}
+/meme {subreddit:optional}
 '''
                          )
 
@@ -46,7 +51,10 @@ async def projects(message: types.Message, database: Database, state: FSMContext
 
 @router.message(Command("up"))
 async def up_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
-    args = command.args.split()
+    args = get_args(command)
+    if len(args) == 0:
+        return await message.answer('too few args!')
+
     if len(args) > 1:
         return await message.answer('too many args!')
 
@@ -59,7 +67,10 @@ async def up_project(message: types.Message, command: CommandObject, database: D
 
 @router.message(Command("down"))
 async def down_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
-    args = command.args.split()
+    args = get_args(command)
+    if len(args) == 0:
+        return await message.answer('too few args!')
+
     if len(args) > 1:
         return await message.answer('too many args!')
 
@@ -120,7 +131,7 @@ async def htop(message: types.Message, database: Database, state: FSMContext):
 
 
 @router.message(Command("upload_faq"))
-async def upload_faq(message: types.Message, database: Database, state: FSMContext):
+async def upload_faq(message: types.Message):
     if not message.reply_to_message:
         return await message.answer("You should reply to a message with document.")
     if not message.reply_to_message.document:
@@ -137,7 +148,7 @@ async def upload_faq(message: types.Message, database: Database, state: FSMConte
 
 
 @router.message(Command("faq"))
-async def faq(message: types.Message, database: Database, state: FSMContext):
+async def faq(message: types.Message):
     if not os.path.exists(f"{data_folder_path}/faq.md"):
         return await message.answer("'faq.md' not found.")
 
@@ -145,6 +156,34 @@ async def faq(message: types.Message, database: Database, state: FSMContext):
     return await message.answer_document(document, caption=f"FAQ")
 
 
+@router.message(Command("joke"))
+async def joke1(message: types.Message, command: CommandObject):
+    args = get_args(command)
+    if len(args) > 1:
+        return await message.answer('too many args!')
+
+    try:
+        joke_type = args[0] if len(args) == 1 else None
+        joke = await get_joke(joke_type)
+    except Exception as e:
+        return await message.answer(str(e))
+    return await message.answer(joke)
+
+
+@router.message(Command("meme"))
+async def meme1(message: types.Message, command: CommandObject):
+    args = get_args(command)
+    if len(args) > 1:
+        return await message.answer('too many args!')
+
+    try:
+        meme_subreddit = args[0] if len(args) == 1 else None
+        url, title = await get_meme(meme_subreddit)
+    except Exception as e:
+        return await message.answer(str(e))
+    return await message.answer_photo(url, caption=title)
+
+
 @router.message(Command("niggachain"))
-async def meme(message: types.Message, state: FSMContext):
+async def chain(message: types.Message):
     return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')
