@@ -1,8 +1,12 @@
+import os
+
 from aiogram import Router, F, types
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
+from aiogram.types import FSInputFile
 
 from lib.database import Database
+from lib.init import data_folder_path
 from lib.states.confirmation_state import ConfirmationState
 
 router = Router()
@@ -20,13 +24,17 @@ async def help(message: types.Message, state: FSMContext):
 /reboot
 /prune
 /htop
+/upload_faq
+/faq
 '''
                          )
 
 
 @router.message(Command("ps"))
 async def ps(message: types.Message, database: Database, state: FSMContext):
-    containers = database.ssh_manager.get_docker_ps()
+    containers_json = database.ssh_manager.get_docker_ps()
+    pad = len(max(containers_json, key=lambda c: len(c['Image']))['Image'])
+    containers = [f"{c["Image"].ljust(pad, ' ')} {c['Names']}" for c in containers_json]
     await message.answer(f"```docker\n{'\n\n'.join(containers)}```", parse_mode='MarkdownV2')
 
 
@@ -106,9 +114,35 @@ async def reboot(message: types.Message, database: Database, state: FSMContext):
 
 
 @router.message(Command("htop"))
-async def meme(message: types.Message, database: Database, state: FSMContext):
+async def htop(message: types.Message, database: Database, state: FSMContext):
     result = database.ssh_manager.htop()
     return await message.answer(result)
+
+
+@router.message(Command("upload_faq"))
+async def upload_faq(message: types.Message, database: Database, state: FSMContext):
+    if not message.reply_to_message:
+        return await message.answer("You should reply to a message with document.")
+    if not message.reply_to_message.document:
+        return await message.answer("You should reply to a message containing document.")
+
+    doc = message.reply_to_message.document
+    file = await message.bot.get_file(doc.file_id)
+    downloaded_file = await message.bot.download_file(file.file_path)
+
+    with open(f"{data_folder_path}/faq.md", "wb") as f:
+        f.write(downloaded_file.read())
+
+    return await message.answer('Saved faq.')
+
+
+@router.message(Command("faq"))
+async def faq(message: types.Message, database: Database, state: FSMContext):
+    if not os.path.exists(f"{data_folder_path}/faq.md"):
+        return await message.answer("'faq.md' not found.")
+
+    document = FSInputFile(f"{data_folder_path}/faq.md", filename="faq.md")
+    return await message.answer_document(document, caption=f"FAQ")
 
 
 @router.message(Command("niggachain"))

@@ -5,10 +5,12 @@ services:
     image: siegfriedschmidt/telegram-ssh-bot
     container_name: telegram-ssh-bot
     environment:
-      - SECRET_FOLDER_PATH=/app/.secret
+      - SECRET_FOLDER_PATH=/app/secret
+      - DATA_FOLDER_PATH=/app/data
       - TZ=Europe/Moscow
     volumes:
       - ./secret:/app/secret
+      - ./data:/app/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

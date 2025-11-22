@@ -1,5 +1,5 @@
 import json
-from typing import Tuple, List
+from typing import Tuple, List, Any
 
 import paramiko
 
@@ -16,11 +16,9 @@ class SSHManager:
         self.user = user
         self.key = paramiko.Ed25519Key.from_private_key_file(key_path)
 
-    def get_docker_ps(self) -> List[str]:
+    def get_docker_ps(self) -> Any:
         result, error = self.run_ssh_command("docker ps -s --format json")
-        containers = json.loads(f'[{','.join(result.splitlines())}]')
-        pad = len(max(containers, key=lambda c: len(c['Image']))['Image'])
-        return [f"{c["Image"].ljust(pad, ' ')} {c['Names']}" for c in containers]
+        return json.loads(f'[{','.join(result.splitlines())}]')
 
     def get_docker_projects(self) -> List[str]:
         result, error = self.run_ssh_command(f"ls {proj}")

@@ -22,3 +22,4 @@ cert
 .secret
 .secrets
 *.pyc
+data

@@ -38,7 +38,13 @@ async def main():
         await notification("Bot stopped.", bot)
 
     async def on_start():
-        await notification("Bot started.", bot)
+        containers_json = database.ssh_manager.get_docker_ps()
+        nextcloud_running = False
+        for c in containers_json:
+            if c["Image"] == 'nextcloud':
+                nextcloud_running = True
+        start_message = "Bot started." + (" Nextcloud is NOT running. Launch it via '/up nextcloud'." if not nextcloud_running else '')
+        await notification(start_message, bot)
 
     dp = DispatcherOnShutdown(on_shutdown)
 
