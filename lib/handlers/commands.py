@@ -3,12 +3,13 @@ import os
 from aiogram import Router, F, types
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile
+from aiogram.types import FSInputFile, BufferedInputFile
 
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.database import Database
 from lib.init import data_folder_path
+from lib.logger import log_stream
 from lib.states.confirmation_state import ConfirmationState
 from lib.utils.utils import get_args
 
@@ -31,6 +32,7 @@ async def h(message: types.Message, state: FSMContext):
 /faq
 /joke {joke_type:optional}
 /meme {subreddit:optional}
+/logs
 '''
                          )
 
@@ -190,6 +192,12 @@ async def meme1(message: types.Message, command: CommandObject):
         await message.answer(f"{caption}\n\n{url}", parse_mode="Markdown", disable_web_page_preview=False)
 
     return None
+
+
+@router.message(Command("logs"))
+async def logs(message: types.Message):
+    file = BufferedInputFile(log_stream.get_file().read(), filename="logs.txt")
+    return await message.answer_document(file)
 
 
 @router.message(Command("niggachain"))
