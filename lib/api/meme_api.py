@@ -41,7 +41,7 @@ async def get_meme(subreddit: str = None) -> Tuple[str, str]:
             if 'code' in data:
                 raise MemeApiError(data['code'])
 
-            caption = f"*{data['title']}*\n/r/{data['subreddit']}"
+            caption = f"{data['title']}\n/r/{data['subreddit']}"
             return data["url"], caption
 
 

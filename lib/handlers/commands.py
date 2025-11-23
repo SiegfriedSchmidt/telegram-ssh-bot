@@ -1,6 +1,8 @@
+import asyncio
 import os
 
 from aiogram import Router, F, types
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, BufferedInputFile
@@ -184,12 +186,16 @@ async def meme1(message: types.Message, command: CommandObject):
     except Exception as e:
         return await message.answer(str(e))
 
-    if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
-        await message.answer_photo(url, caption=caption, parse_mode="Markdown")
-    elif url.lower().endswith(('.mp4', '.gifv', '.webm')):
-        await message.answer_video(url, caption=caption, parse_mode="Markdown")
-    else:
-        await message.answer(f"{caption}\n\n{url}", parse_mode="Markdown", disable_web_page_preview=False)
+    try:
+        if url.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+            await message.answer_photo(url, caption=caption)
+        elif url.endswith('.gif'):
+            await message.answer_animation(url, caption=caption)
+        elif url.endswith(('.mp4', '.gifv', '.webm')):
+            await message.answer_video(url, caption=caption)
+    except TelegramBadRequest:
+        await asyncio.sleep(1)
+        await message.answer(f"{url}\n\n{caption}", disable_web_page_preview=False)
 
     return None
 
