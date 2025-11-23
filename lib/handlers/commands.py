@@ -1,7 +1,8 @@
 import asyncio
 import os
+import time
 
-from aiogram import Router, F, types
+from aiogram import Router, types
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
@@ -12,6 +13,7 @@ from lib.api.meme_api import get_meme
 from lib.database import Database
 from lib.init import data_folder_path
 from lib.logger import log_stream
+from lib.matplotlib_tables import create_table_matplotlib
 from lib.states.confirmation_state import ConfirmationState
 from lib.utils.utils import get_args
 
@@ -22,14 +24,13 @@ router = Router()
 async def h(message: types.Message, state: FSMContext):
     await message.answer('''
 /h
-/ps
 /projects
 /up {project_name:required}
 /down {project_name:required}
 /update
 /reboot
 /prune
-/htop
+/stats
 /upload_faq
 /faq
 /joke {joke_type:optional}
@@ -39,12 +40,28 @@ async def h(message: types.Message, state: FSMContext):
                          )
 
 
-@router.message(Command("ps"))
-async def ps(message: types.Message, database: Database, state: FSMContext):
-    containers_json = database.ssh_manager.get_docker_ps()
-    pad = len(max(containers_json, key=lambda c: len(c['Image']))['Image'])
-    containers = [f"{c["Image"].ljust(pad, ' ')} {c['Names']}" for c in containers_json]
-    await message.answer(f"```docker\n{'\n\n'.join(containers)}```", parse_mode='MarkdownV2')
+@router.message(Command("stats"))
+async def stats(message: types.Message, database: Database, state: FSMContext):
+    answer = await message.answer("gathering statistics...")
+    containers_ps, containers_stats, htop = database.ssh_manager.get_stats()
+
+    containers_data = {}
+    for c in containers_ps:
+        containers_data[c["Names"]] = c
+
+    for c in containers_stats:
+        containers_data[c["Name"]] |= c
+
+    headers = ["Name", "Image", "CPUPerc", "MemUsage", "Status"]
+    data = []
+    for c in containers_data.values():
+        data.append([c["Name"], c["Image"], c["CPUPerc"], c["MemUsage"].split(' /')[0], c["Status"]])
+
+    table_containers_image = create_table_matplotlib(data, headers, f'Stats {time.strftime("%Y-%m-%d %H:%M:%S")}')
+    file = BufferedInputFile(table_containers_image.read(), filename="img.png")
+
+    await answer.delete()
+    await message.answer_photo(file)
 
 
 @router.message(Command("projects"))
@@ -126,12 +143,6 @@ async def reboot(message: types.Message, database: Database, state: FSMContext):
     else:
         await message.answer('abort')
     return await state.clear()
-
-
-@router.message(Command("htop"))
-async def htop(message: types.Message, database: Database, state: FSMContext):
-    result = database.ssh_manager.htop()
-    return await message.answer(result)
 
 
 @router.message(Command("upload_faq"))

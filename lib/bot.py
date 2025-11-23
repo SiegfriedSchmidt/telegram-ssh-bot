@@ -38,7 +38,7 @@ async def main():
         await notification("Bot stopped.", bot)
 
     async def on_start():
-        containers_json = database.ssh_manager.get_docker_ps()
+        containers_json, _, _ = database.ssh_manager.get_stats()
         nextcloud_running = False
         for c in containers_json:
             if c["Image"] == 'nextcloud':
