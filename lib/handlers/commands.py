@@ -178,10 +178,18 @@ async def meme1(message: types.Message, command: CommandObject):
 
     try:
         meme_subreddit = args[0] if len(args) == 1 else None
-        url, title = await get_meme(meme_subreddit)
+        url, caption = await get_meme(meme_subreddit)
     except Exception as e:
         return await message.answer(str(e))
-    return await message.answer_photo(url, caption=title)
+
+    if url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+        await message.answer_photo(url, caption=caption, parse_mode="Markdown")
+    elif url.lower().endswith(('.mp4', '.gifv', '.webm')):
+        await message.answer_video(url, caption=caption, parse_mode="Markdown")
+    else:
+        await message.answer(f"{caption}\n\n{url}", parse_mode="Markdown", disable_web_page_preview=False)
+
+    return None
 
 
 @router.message(Command("niggachain"))

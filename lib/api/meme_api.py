@@ -41,16 +41,13 @@ async def get_meme(subreddit: str = None) -> Tuple[str, str]:
             if 'code' in data:
                 raise MemeApiError(data['code'])
 
-            return data["url"], data["title"]
+            caption = f"*{data['title']}*\n/r/{data['subreddit']}"
+            return data["url"], caption
 
 
 async def main():
-    async with aiohttp.ClientSession() as session:
-        async with session.get('http://eth0.me', proxy=config.proxy_url) as rs:
-            print(await rs.text())
-
-    # meme = await get_meme()
-    # print(meme)
+    meme = await get_meme()
+    print(meme)
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 
 from lib.config_reader import config
 from lib.database import Database
-from lib.handlers import commands, messages, public_commands
+from lib.handlers import commands, messages, public_commands, errors
 from lib.logger import main_logger
 from lib.middlewares.loggerMiddleware import LoggerMiddleware
 
@@ -31,7 +31,7 @@ async def notification(message: str, bot: Bot):
 
 async def main():
     # logging.basicConfig(level=logging.DEBUG)
-    bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode='HTML'))
+    bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=None))
     database = Database()
 
     async def on_shutdown():
@@ -43,7 +43,9 @@ async def main():
         for c in containers_json:
             if c["Image"] == 'nextcloud':
                 nextcloud_running = True
-        start_message = "Bot started." + (" Nextcloud is NOT running. Launch it via '/up nextcloud'." if not nextcloud_running else '')
+        start_message = "Bot started." + (
+            " Nextcloud is NOT running. Launch it via '/up nextcloud'." if not nextcloud_running else ''
+        )
         await notification(start_message, bot)
 
     dp = DispatcherOnShutdown(on_shutdown)
@@ -56,6 +58,7 @@ async def main():
     group_router.include_router(commands.router)
     group_router.include_router(messages.router)
 
+    dp.include_router(errors.router)
     dp.include_router(public_commands.router)
     dp.include_router(group_router)
 
