@@ -3,6 +3,9 @@ from typing import Tuple
 
 import aiohttp
 
+from lib.config_reader import config
+
+# https://github.com/D3vd/Meme_Api
 meme_url = 'https://meme-api.com/gimme'
 
 
@@ -22,8 +25,6 @@ class MemeApiError(MemeError):
         super().__init__(f"Meme API error: {status}.")
 
 
-# https://github.com/D3vd/Meme_Api
-
 async def get_meme(subreddit: str = None) -> Tuple[str, str]:
     if subreddit is None:
         subreddit = ''
@@ -32,7 +33,7 @@ async def get_meme(subreddit: str = None) -> Tuple[str, str]:
         raise InvalidMemeSubreddit(subreddit)
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(f'{meme_url}/{subreddit}') as rs:
+        async with session.get(f'{meme_url}/{subreddit}', proxy=config.proxy_url) as rs:
             if rs.status == 404:
                 raise MemeApiError(rs.status)
 
@@ -44,8 +45,12 @@ async def get_meme(subreddit: str = None) -> Tuple[str, str]:
 
 
 async def main():
-    meme = await get_meme()
-    print(meme)
+    async with aiohttp.ClientSession() as session:
+        async with session.get('http://eth0.me', proxy=config.proxy_url) as rs:
+            print(await rs.text())
+
+    # meme = await get_meme()
+    # print(meme)
 
 
 if __name__ == '__main__':

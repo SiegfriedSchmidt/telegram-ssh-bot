@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     bot_token: SecretStr
     group_id: SecretStr
     notification_ids: List[SecretStr]
+    proxy_url: str = ''
 
     @classmethod
     def settings_customise_sources(
