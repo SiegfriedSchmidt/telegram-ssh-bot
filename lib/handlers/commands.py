@@ -43,7 +43,7 @@ async def h(message: types.Message, state: FSMContext):
 @router.message(Command("stats"))
 async def stats(message: types.Message, database: Database, state: FSMContext):
     answer = await message.answer("gathering statistics...")
-    containers_ps, containers_stats, htop = database.ssh_manager.get_stats()
+    containers_ps, containers_stats, ram, cpu, uptime = database.ssh_manager.get_stats()
 
     containers_data = {}
     for c in containers_ps:

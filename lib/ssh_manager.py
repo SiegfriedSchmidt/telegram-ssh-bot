@@ -20,16 +20,21 @@ class SSHManager:
         self.ssh: paramiko.SSHClient | None = None
         self.shell: paramiko.Channel | None = None
 
-    def get_stats(self):
+    def get_running_containers(self) -> dict:
+        result = self.run_single_command("docker ps -s --format json")
+        return json.loads(f'[{','.join(result[0].splitlines())}]')
+
+    def get_stats(self) -> tuple[dict, dict, str, str, str]:
         results = self.run_multiple_commands([
             "docker ps -s --format json",
             "docker stats --no-stream --format json",
-            "free -h"
+            "free -h | awk '/Mem:/ {printf \"%s/%s\n\", $3, $2}'",
+            "top -bn1 | grep \"Cpu(s)\" | awk '{print 100 - $8 \"%\"}'",
+            "uptime -p"
         ])
         docker_ps = json.loads(f'[{','.join(results[0][0].splitlines())}]')
         docker_stats = json.loads(f'[{','.join(results[1][0].splitlines())}]')
-        htop = results[2][0]
-        return docker_ps, docker_stats, htop
+        return docker_ps, docker_stats, results[2][0], results[3][0], results[4][0]
 
     def get_docker_projects(self) -> List[str]:
         result, error = self.run_single_command(f"ls {proj}")

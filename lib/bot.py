@@ -1,10 +1,13 @@
 import asyncio
-from typing import Any, Callable, Coroutine
 import nest_asyncio
 import signal
+from typing import Any, Callable, Coroutine
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from lib.api.joke_api import get_joke
 from lib.config_reader import config
 from lib.database import Database
 from lib.handlers import commands, messages, public_commands, errors
@@ -29,6 +32,13 @@ async def notification(message: str, bot: Bot):
     await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
 
 
+async def on_day_start(bot: Bot):
+    joke = await get_joke('Dark')
+    message = f'Daily joke:\n\n{joke}'
+    await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
+    main_logger.info("Day start function executed.")
+
+
 async def main():
     # logging.basicConfig(level=logging.DEBUG)
     bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=None))
@@ -38,7 +48,7 @@ async def main():
         await notification("Bot stopped.", bot)
 
     async def on_start():
-        containers_json, _, _ = database.ssh_manager.get_stats()
+        containers_json = database.ssh_manager.get_running_containers()
         nextcloud_running = False
         for c in containers_json:
             if c["Image"] == 'nextcloud':
@@ -48,16 +58,26 @@ async def main():
         )
         await notification(start_message, bot)
 
+    # scheduler
+    scheduler = AsyncIOScheduler()
+    trigger = CronTrigger(hour=11, minute=0)
+    scheduler.add_job(on_day_start, trigger, args=(bot,))
+    scheduler.start()
+
+    # dispatcher
     dp = DispatcherOnShutdown(on_shutdown)
 
+    # middlewares
     dp.message.middleware(LoggerMiddleware())
 
+    # group router
     group_router = Router()
     group_router.message.filter(F.chat.type.in_(["group", "supergroup"]),
                                 F.chat.id == int(config.group_id.get_secret_value()))
     group_router.include_router(commands.router)
     group_router.include_router(messages.router)
 
+    # include routers
     dp.include_router(errors.router)
     dp.include_router(public_commands.router)
     dp.include_router(group_router)
