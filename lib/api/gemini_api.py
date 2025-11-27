@@ -1,7 +1,7 @@
+import asyncio
 from google import genai
 from google.genai import types
 from pydantic import SecretStr
-
 from lib.config_reader import config
 
 
@@ -34,5 +34,10 @@ class GeminiApi:
 
 gemini_api = GeminiApi(config.gemini_api_key, config.proxy_url)
 
+
+async def main():
+    print(await gemini_api.ask("Explain how AI works in a few words"))
+
+
 if __name__ == '__main__':
-    print(gemini_api.ask("Explain how AI works in a few words"))
+    asyncio.run(main())

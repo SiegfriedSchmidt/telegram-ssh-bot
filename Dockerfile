@@ -17,6 +17,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 COPY --from=builder /app/wheels /wheels
 RUN pip install --no-cache /wheels/* && rm -rf /wheels
+RUN apt update && apt install -y dnsutils
 
 RUN addgroup --gid 1001 --system app && \
     adduser --no-create-home --shell /bin/false --disabled-password --uid 1001 --system --group app
