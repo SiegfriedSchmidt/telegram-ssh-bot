@@ -8,6 +8,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, BufferedInputFile
 
+from lib.api.gemini_api import gemini_api
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.database import Database
@@ -36,6 +37,7 @@ async def h(message: types.Message, state: FSMContext):
 /joke {joke_type:optional}
 /meme {subreddit:optional}
 /logs
+/ask {prompt}
 '''
                          )
 
@@ -215,6 +217,17 @@ async def meme1(message: types.Message, command: CommandObject):
 async def logs(message: types.Message):
     file = BufferedInputFile(log_stream.get_file().read(), filename="logs.txt")
     return await message.answer_document(file)
+
+
+@router.message(Command("ask"))
+async def ask(message: types.Message, command: CommandObject):
+    args = command.args
+    if not args:
+        return await message.answer("You need to specify a query.")
+
+    answer = await message.answer('asking...')
+    response = await gemini_api.ask(args)
+    return await answer.edit_text(response)
 
 
 @router.message(Command("niggachain"))
