@@ -19,7 +19,7 @@ from lib.init import data_folder_path
 from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
 from lib.states.confirmation_state import ConfirmationState
-from lib.utils.utils import get_args
+from lib.utils.utils import get_args, large_respond
 
 router = Router()
 
@@ -214,7 +214,8 @@ async def ask_cmd(message: types.Message, command: CommandObject):
 
     answer = await message.answer('asking...')
     response = await gemini_api.ask(args)
-    return await answer.edit_text(response)
+    await large_respond(message, response)
+    return await answer.delete()
 
 
 @router.message(Command("curl"))
