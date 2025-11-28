@@ -243,6 +243,21 @@ async def geoip_cmd(message: types.Message, command: CommandObject):
     return await message.answer(text)
 
 
+@router.message(Command("torip"))
+async def torip_cmd(message: types.Message, database: Database, command: CommandObject):
+    result, error = database.ssh_manager.curl('eth0.me --connect-timeout 5 --proxy http://192.168.192.1:18082')
+    if not result:
+        return await message.answer(error)
+
+    try:
+        json = await geoip(result)
+        text = '\n'.join(f"{key}: {val}" for key, val in json.items())
+    except Exception as e:
+        return await message.answer(str(e))
+
+    return await message.answer(text)
+
+
 @router.message(Command("niggachain"))
 async def chain_cmd(message: types.Message):
     return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')

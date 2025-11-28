@@ -17,6 +17,7 @@ bot_commands = [
     BotCommand(command='ask', description='{prompt:required} - ask AI'),
     BotCommand(command='curl', description='curl command'),
     BotCommand(command='geoip', description='{ip:required} - get geoip'),
+    BotCommand(command='torip', description='get tor geoip'),
     BotCommand(command='crash', description='some gambling'),
 ]
 
