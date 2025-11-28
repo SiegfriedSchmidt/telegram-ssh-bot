@@ -15,6 +15,7 @@ bot_commands = [
     BotCommand(command='meme', description='{subreddit:optional} - get meme from reddit'),
     BotCommand(command='logs', description='get logs'),
     BotCommand(command='ask', description='{prompt:required} - ask AI'),
+    BotCommand(command='curl', description='curl command'),
     BotCommand(command='crash', description='some gambling'),
 ]
 

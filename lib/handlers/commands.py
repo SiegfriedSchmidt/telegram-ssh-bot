@@ -216,6 +216,14 @@ async def ask(message: types.Message, command: CommandObject):
     return await answer.edit_text(response)
 
 
+@router.message(Command("curl"))
+async def curl(message: types.Message, database: Database, command: CommandObject):
+    result, error = database.ssh_manager.curl(command.args)
+    if not result:
+        return await message.answer(error)
+    return await message.answer(result)
+
+
 @router.message(Command("niggachain"))
 async def chain(message: types.Message):
     return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')

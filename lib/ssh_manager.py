@@ -72,6 +72,9 @@ nohup sh -c '
         result, error = self.run_single_command("docker system prune -f")
         return result
 
+    def curl(self, args: str):
+        return self.run_single_command(f"curl {args}")
+
     def connect(self) -> None:
         if self.ssh is None:
             self.ssh = paramiko.SSHClient()
