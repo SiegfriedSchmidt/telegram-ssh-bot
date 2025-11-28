@@ -10,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, BufferedInputFile
 
 from lib.api.gemini_api import gemini_api
+from lib.api.geoip_api import geoip
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.bot_commands import text_bot_commands
@@ -24,12 +25,12 @@ router = Router()
 
 
 @router.message(Command("h"))
-async def h(message: types.Message, state: FSMContext):
+async def h_cmd(message: types.Message, state: FSMContext):
     await message.answer(text_bot_commands)
 
 
 @router.message(Command("stats"))
-async def stats(message: types.Message, database: Database, state: FSMContext):
+async def stats_cmd(message: types.Message, database: Database, state: FSMContext):
     answer = await message.answer("gathering statistics...")
     containers_ps, containers_stats, ram, cpu, uptime = database.ssh_manager.get_stats()
 
@@ -53,13 +54,13 @@ async def stats(message: types.Message, database: Database, state: FSMContext):
 
 
 @router.message(Command("projects"))
-async def projects(message: types.Message, database: Database, state: FSMContext):
+async def projects_cmd(message: types.Message, database: Database, state: FSMContext):
     docker_projects = database.ssh_manager.get_docker_projects()
     await message.answer('\n'.join(docker_projects))
 
 
 @router.message(Command("up"))
-async def up_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
+async def up_cmd(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
     args = get_args(command)
     if len(args) == 0:
         return await message.answer('too few args!')
@@ -75,7 +76,7 @@ async def up_project(message: types.Message, command: CommandObject, database: D
 
 
 @router.message(Command("down"))
-async def down_project(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
+async def down_cmd(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
     args = get_args(command)
     if len(args) == 0:
         return await message.answer('too few args!')
@@ -94,7 +95,7 @@ async def down_project(message: types.Message, command: CommandObject, database:
 
 
 @router.message(Command("prune"))
-async def prune(message: types.Message, database: Database, state: FSMContext):
+async def prune_cmd(message: types.Message, database: Database, state: FSMContext):
     result = database.ssh_manager.docker_prune()
     if result:
         return await message.answer(result)
@@ -102,7 +103,7 @@ async def prune(message: types.Message, database: Database, state: FSMContext):
 
 
 @router.message(Command("update"))
-async def update_ask(message: types.Message, database: Database, state: FSMContext):
+async def update_cmd(message: types.Message, database: Database, state: FSMContext):
     await state.set_state(ConfirmationState.update_confirmation)
     return await message.answer('Do you want to continue (y/n)?')
 
@@ -118,7 +119,7 @@ async def update(message: types.Message, database: Database, state: FSMContext):
 
 
 @router.message(Command("reboot"))
-async def reboot_ask(message: types.Message, database: Database, state: FSMContext):
+async def reboot_cmd(message: types.Message, database: Database, state: FSMContext):
     await state.set_state(ConfirmationState.reboot_confirmation)
     return await message.answer('Do you want to continue (y/n)?')
 
@@ -134,7 +135,7 @@ async def reboot(message: types.Message, database: Database, state: FSMContext):
 
 
 @router.message(Command("upload_faq"))
-async def upload_faq(message: types.Message):
+async def upload_faq_cmd(message: types.Message):
     if not message.reply_to_message:
         return await message.answer("You should reply to a message with document.")
     if not message.reply_to_message.document:
@@ -151,7 +152,7 @@ async def upload_faq(message: types.Message):
 
 
 @router.message(Command("faq"))
-async def faq(message: types.Message):
+async def faq_cmd(message: types.Message):
     if not os.path.exists(f"{data_folder_path}/faq.md"):
         return await message.answer("'faq.md' not found.")
 
@@ -160,7 +161,7 @@ async def faq(message: types.Message):
 
 
 @router.message(Command("joke"))
-async def joke1(message: types.Message, command: CommandObject):
+async def joke_cmd(message: types.Message, command: CommandObject):
     args = get_args(command)
     if len(args) > 1:
         return await message.answer('too many args!')
@@ -174,7 +175,7 @@ async def joke1(message: types.Message, command: CommandObject):
 
 
 @router.message(Command("meme"))
-async def meme1(message: types.Message, command: CommandObject):
+async def meme_cmd(message: types.Message, command: CommandObject):
     args = get_args(command)
     if len(args) > 1:
         return await message.answer('too many args!')
@@ -200,13 +201,13 @@ async def meme1(message: types.Message, command: CommandObject):
 
 
 @router.message(Command("logs"))
-async def logs(message: types.Message):
+async def logs_cmd(message: types.Message):
     file = BufferedInputFile(log_stream.get_file().read(), filename="logs.txt")
     return await message.answer_document(file)
 
 
 @router.message(Command("ask"))
-async def ask(message: types.Message, command: CommandObject):
+async def ask_cmd(message: types.Message, command: CommandObject):
     args = command.args
     if not args:
         return await message.answer("You need to specify a query.")
@@ -217,20 +218,37 @@ async def ask(message: types.Message, command: CommandObject):
 
 
 @router.message(Command("curl"))
-async def curl(message: types.Message, database: Database, command: CommandObject):
+async def curl_cmd(message: types.Message, database: Database, command: CommandObject):
     result, error = database.ssh_manager.curl(command.args)
     if not result:
         return await message.answer(error)
     return await message.answer(result)
 
 
+@router.message(Command("geoip"))
+async def geoip_cmd(message: types.Message, command: CommandObject):
+    args = get_args(command)
+    if len(args) == 0:
+        return await message.answer('too few args!')
+
+    if len(args) > 1:
+        return await message.answer('too many args!')
+
+    try:
+        json = await geoip(args[0])
+        text = '\n'.join(f"{key}: {val}" for key, val in json.items())
+    except Exception as e:
+        return await message.answer(str(e))
+    return await message.answer(text)
+
+
 @router.message(Command("niggachain"))
-async def chain(message: types.Message):
+async def chain_cmd(message: types.Message):
     return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')
 
 
 @router.message(Command("crash"))
-async def crash(message: types.Message, command: CommandObject):
+async def crash_cmd(message: types.Message, command: CommandObject):
     multiplier = 1.0
     msg = await message.answer("🚀 Launching... 1.00×")
 
