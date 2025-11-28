@@ -31,6 +31,7 @@ async def get_joke(joke_type: str = None) -> str:
     if joke_type is None:
         joke_type = 'Any'
 
+    joke_type = joke_type[0].capitalize() + joke_type.lower()[1:]
     if joke_type not in joke_types:
         raise InvalidJokeType(joke_type)
 

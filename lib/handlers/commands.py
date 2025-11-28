@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+import numpy as np
 
 from aiogram import Router, types
 from aiogram.exceptions import TelegramBadRequest
@@ -11,6 +12,7 @@ from aiogram.types import FSInputFile, BufferedInputFile
 from lib.api.gemini_api import gemini_api
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
+from lib.bot_commands import text_bot_commands
 from lib.database import Database
 from lib.init import data_folder_path
 from lib.logger import log_stream
@@ -23,23 +25,7 @@ router = Router()
 
 @router.message(Command("h"))
 async def h(message: types.Message, state: FSMContext):
-    await message.answer('''
-/h
-/projects
-/up {project_name:required}
-/down {project_name:required}
-/update
-/reboot
-/prune
-/stats
-/upload_faq
-/faq
-/joke {joke_type:optional}
-/meme {subreddit:optional}
-/logs
-/ask {prompt}
-'''
-                         )
+    await message.answer(text_bot_commands)
 
 
 @router.message(Command("stats"))
@@ -233,3 +219,16 @@ async def ask(message: types.Message, command: CommandObject):
 @router.message(Command("niggachain"))
 async def chain(message: types.Message):
     return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')
+
+
+@router.message(Command("crash"))
+async def crash(message: types.Message, command: CommandObject):
+    multiplier = 1.0
+    msg = await message.answer("🚀 Launching... 1.00×")
+
+    while True:
+        await asyncio.sleep(np.random.uniform(1, 2))
+        multiplier += np.random.uniform(0.05, 0.35)
+        if multiplier > 10 or np.random.random() < 0.12:  # crash!
+            return await msg.edit_text(f"💥 CRASHED at {multiplier:.2f}×\nYou didn't cash out!")
+        await msg.edit_text(f"🚀 {multiplier:.2f}×\nType /cashout to save your bet!")

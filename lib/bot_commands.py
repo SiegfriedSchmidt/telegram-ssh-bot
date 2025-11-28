@@ -1,0 +1,21 @@
+from aiogram.types import BotCommand
+
+bot_commands = [
+    BotCommand(command='h', description='help message'),
+    BotCommand(command='projects', description='show all docker projects'),
+    BotCommand(command='up', description='{project_name:required} - start docker project'),
+    BotCommand(command='down', description='{project_name:required} - stop docker project'),
+    BotCommand(command='update', description='update bot image'),
+    BotCommand(command='reboot', description='reboot machine'),
+    BotCommand(command='prune', description='remove unused docker containers'),
+    BotCommand(command='stats', description='host statistics'),
+    BotCommand(command='upload_faq', description='upload faq file'),
+    BotCommand(command='faq', description='get faq file'),
+    BotCommand(command='joke', description='{joke_type:optional} - get joke'),
+    BotCommand(command='meme', description='{subreddit:optional} - get meme from reddit'),
+    BotCommand(command='logs', description='get logs'),
+    BotCommand(command='ask', description='{prompt:required} - ask AI'),
+    BotCommand(command='crash', description='some gambling'),
+]
+
+text_bot_commands = '\n'.join([f"/{c.command} {c.description}" for c in bot_commands])

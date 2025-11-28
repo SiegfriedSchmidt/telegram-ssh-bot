@@ -8,6 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from lib.api.joke_api import get_joke
+from lib.bot_commands import bot_commands
 from lib.config_reader import config
 from lib.database import Database
 from lib.handlers import commands, messages, public_commands, errors
@@ -84,6 +85,7 @@ async def main():
 
     await on_start()
     await bot.delete_webhook(drop_pending_updates=True)
+    await bot.set_my_commands(bot_commands)
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types(), database=database)
 
 
