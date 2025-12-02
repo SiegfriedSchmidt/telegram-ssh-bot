@@ -258,6 +258,17 @@ async def torip_cmd(message: types.Message, database: Database, command: Command
     return await message.answer(text)
 
 
+@router.message(Command("del"))
+async def del_cmd(message: types.Message):
+    if not message.reply_to_message:
+        return await message.answer("You need to reply to a message to delete.")
+
+    try:
+        return await message.reply_to_message.delete()
+    except Exception as e:
+        return await message.answer("I have no permission to delete this message.")
+
+
 @router.message(Command("niggachain"))
 async def chain_cmd(message: types.Message):
     return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')
