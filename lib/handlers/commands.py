@@ -269,6 +269,18 @@ async def del_cmd(message: types.Message):
         return await message.answer("I have no permission to delete this message.")
 
 
+@router.message(Command("openconnect"))
+async def openconnect(message: types.Message, command: CommandObject, database: Database):
+    args = get_args(command)
+    if len(args) == 0 or len(args) > 1 or args[0] not in ['status', 'restart', 'stop', 'start']:
+        return await message.answer('invalid syntax, openconnect status|restart|stop|start')
+
+    result, error = database.ssh_manager.openconnect(command.args)
+    if not result:
+        return await message.answer(error)
+    return await message.answer(result)
+
+
 @router.message(Command("niggachain"))
 async def chain_cmd(message: types.Message):
     return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')

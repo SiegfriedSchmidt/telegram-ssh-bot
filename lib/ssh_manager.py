@@ -75,6 +75,9 @@ nohup sh -c '
     def curl(self, args: str):
         return self.run_single_command(f"curl {args}")
 
+    def openconnect(self, action: str):
+        return self.run_single_command(f"sudo systemctl {action} openconnect.service")
+
     def connect(self) -> None:
         if self.ssh is None:
             self.ssh = paramiko.SSHClient()

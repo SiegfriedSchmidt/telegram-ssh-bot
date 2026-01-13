@@ -18,6 +18,7 @@ bot_commands = [
     BotCommand(command='curl', description='curl command'),
     BotCommand(command='geoip', description='{ip:required} - get geoip'),
     BotCommand(command='torip', description='get tor geoip'),
+    BotCommand(command='openconnect', description='{status|restart|stop|start:required} manage openconnect service'),
     BotCommand(command='del', description='delete replied message'),
     BotCommand(command='crash', description='some gambling'),
 ]
