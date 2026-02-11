@@ -13,10 +13,11 @@ from lib.api.meme_api import get_meme
 from lib.bot_commands import bot_commands
 from lib.config_reader import config
 from lib.database import Database
-from lib.handlers import commands, messages, public_commands, errors
+from lib.handlers import commands, messages, public_commands, errors, admin
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
+from lib.storage import storage
 
 nest_asyncio.apply()
 
@@ -66,9 +67,15 @@ async def main():
     database = Database()
 
     async def on_shutdown():
+        if not storage.notification_enabled:
+            return
+
         await notification("Bot stopped.", bot)
 
     async def on_start():
+        if not storage.notification_enabled:
+            return
+
         containers_json = database.ssh_manager.get_running_containers()
         nextcloud_running = False
         for c in containers_json:
@@ -102,6 +109,7 @@ async def main():
     # include routers
     dp.include_router(errors.router)
     dp.include_router(public_commands.router)
+    dp.include_router(admin.router)
     dp.include_router(group_router)
 
     await on_start()

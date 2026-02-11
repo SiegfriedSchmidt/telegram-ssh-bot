@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     user: SecretStr
     bot_token: SecretStr
     group_id: SecretStr
+    admin_id: SecretStr
     notification_ids: List[SecretStr]
     gemini_api_key: SecretStr
     otp_secret: SecretStr
