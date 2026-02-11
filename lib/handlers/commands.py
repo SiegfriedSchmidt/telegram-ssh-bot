@@ -8,6 +8,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, BufferedInputFile
+from aiogram.utils.chat_action import ChatActionMiddleware
 
 from lib.api.gemini_api import gemini_api
 from lib.api.geoip_api import geoip
@@ -20,9 +21,10 @@ from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
 from lib.otp_manager import otp_manager, OTP_ACCESS_GRANTED_HOURS
 from lib.states.confirmation_state import ConfirmationState
-from lib.utils.utils import get_args, large_respond
+from lib.utils.utils import get_args, large_respond, run_in_thread
 
 router = Router()
+router.message.middleware(ChatActionMiddleware())
 
 
 @router.message(Command("h"))
@@ -33,7 +35,7 @@ async def h_cmd(message: types.Message, state: FSMContext):
 @router.message(Command("stats"))
 async def stats_cmd(message: types.Message, database: Database, state: FSMContext):
     answer = await message.answer("gathering statistics...")
-    containers_ps, containers_stats, ram, cpu, uptime = database.ssh_manager.get_stats()
+    containers_ps, containers_stats, ram, cpu, uptime = await run_in_thread(database.ssh_manager.get_stats)
 
     containers_data = {}
     for c in containers_ps:

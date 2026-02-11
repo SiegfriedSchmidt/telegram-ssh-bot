@@ -30,6 +30,11 @@ def get_args(command: CommandObject):
     return command.args.split() if command.args else []
 
 
+async def run_in_thread(func, *args):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, func, *args)
+
+
 async def large_respond(message: types.Message, obj: str | Iterable[str], timeout=3, characters=2000,
                         maximum=6) -> bool:
     if not obj:
