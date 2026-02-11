@@ -21,6 +21,7 @@ bot_commands = [
     BotCommand(command='openconnect', description='{status|restart|stop|start:required} manage openconnect service'),
     BotCommand(command='del', description='delete replied message'),
     BotCommand(command='crash', description='some gambling'),
+    BotCommand(command='access', description='{otp_code:required} get privileged access'),
 ]
 
 text_bot_commands = '\n'.join([f"/{c.command} {c.description}" for c in bot_commands])

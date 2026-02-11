@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     group_id: SecretStr
     notification_ids: List[SecretStr]
     gemini_api_key: SecretStr
+    otp_secret: SecretStr
     proxy_url: str = ''
 
     @classmethod

@@ -13,7 +13,8 @@ from lib.config_reader import config
 from lib.database import Database
 from lib.handlers import commands, messages, public_commands, errors
 from lib.logger import main_logger
-from lib.middlewares.loggerMiddleware import LoggerMiddleware
+from lib.middlewares.access_middleware import AccessMiddleware
+from lib.middlewares.logger_middleware import LoggerMiddleware
 
 nest_asyncio.apply()
 
@@ -70,6 +71,7 @@ async def main():
 
     # middlewares
     dp.message.middleware(LoggerMiddleware())
+    dp.message.middleware(AccessMiddleware())
 
     # group router
     group_router = Router()

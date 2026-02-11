@@ -18,6 +18,7 @@ from lib.database import Database
 from lib.init import data_folder_path
 from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
+from lib.otp_manager import otp_manager, OTP_ACCESS_GRANTED_HOURS
 from lib.states.confirmation_state import ConfirmationState
 from lib.utils.utils import get_args, large_respond
 
@@ -46,11 +47,11 @@ async def stats_cmd(message: types.Message, database: Database, state: FSMContex
     for c in containers_data.values():
         data.append([c["Name"], c["Image"], c["CPUPerc"], c["MemUsage"].split(' /')[0], c["Status"]])
 
-    table_containers_image = create_table_matplotlib(data, headers, f'Stats {time.strftime("%Y-%m-%d %H:%M:%S")}')
+    table_containers_image = create_table_matplotlib(data, headers)
     file = BufferedInputFile(table_containers_image.read(), filename="img.png")
 
     await answer.delete()
-    await message.answer_photo(file)
+    await message.answer_photo(file, caption=f'Stats {time.strftime("%Y-%m-%d %H:%M:%S")}')
 
 
 @router.message(Command("projects"))
@@ -218,7 +219,7 @@ async def ask_cmd(message: types.Message, command: CommandObject):
     return await answer.delete()
 
 
-@router.message(Command("curl"))
+@router.message(Command("curl"), flags={'otp': True})
 async def curl_cmd(message: types.Message, database: Database, command: CommandObject):
     result, error = database.ssh_manager.curl(command.args)
     if not result:
@@ -279,6 +280,18 @@ async def openconnect(message: types.Message, command: CommandObject, database: 
     if not result:
         return await message.answer(error)
     return await message.answer(result)
+
+
+@router.message(Command("access"))
+async def access(message: types.Message, command: CommandObject, database: Database):
+    args = get_args(command)
+    if len(args) != 1:
+        return await message.answer('invalid syntax, you must provide only valid OTP code.')
+
+    result = otp_manager.authenticate(message.from_user.id, args[0])
+    if result:
+        return await message.answer(result)
+    return await message.answer(f'Access granted for {OTP_ACCESS_GRANTED_HOURS} hours.')
 
 
 @router.message(Command("niggachain"))
