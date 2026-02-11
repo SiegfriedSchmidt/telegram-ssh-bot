@@ -33,6 +33,7 @@ class OTPManager:
     def __init__(self, otp_secret: SecretStr):
         self.users: dict[int, OTPUser] = dict()
         self.totp = pyotp.TOTP(otp_secret.get_secret_value())
+        self.used: dict[str, datetime] = {}
 
     def authenticate(self, chat_id: int, code: str) -> str:
         user = self.users.get(chat_id)
@@ -49,7 +50,10 @@ class OTPManager:
             self.users[chat_id] = user
 
         if self.totp.verify(code):
+            if code in self.used and datetime.now() - self.used[code] < timedelta(seconds=31):
+                return 'This code is already used. Wait for OTP refresh.'
             user.authenticate()
+            self.used[code] = datetime.now()
             return ''
         else:
             user.update_attempts()
