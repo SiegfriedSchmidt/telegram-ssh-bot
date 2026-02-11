@@ -15,9 +15,23 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+        ffmpeg \
+        curl \
+        ca-certificates \
+        unzip \
+        dnsutils && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
 COPY --from=builder /app/wheels /wheels
-RUN pip install --no-cache /wheels/* && rm -rf /wheels
-RUN apt update && apt install -y dnsutils
+RUN pip install --no-cache-dir /wheels/* && \
+    rm -rf /wheels
+
+RUN curl -fsSL https://deno.land/install.sh | sh && \
+    mv /root/.deno/bin/deno /usr/local/bin/deno && \
+    deno --version
 
 RUN addgroup --gid 1001 --system app && \
     adduser --no-create-home --shell /bin/false --disabled-password --uid 1001 --system --group app
