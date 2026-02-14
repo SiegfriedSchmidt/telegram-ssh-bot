@@ -5,6 +5,7 @@ from lib.config_reader import config
 from lib.database import Database
 from lib.states.confirmation_state import ConfirmationState
 from lib.storage import storage
+from lib.utils.utils import get_args
 
 router = Router()
 router.message.filter(F.chat.type.in_(["private"]), F.chat.id == int(config.admin_id.get_secret_value()))
@@ -46,3 +47,15 @@ async def send(message: types.Message, database: Database, state: FSMContext):
     else:
         await message.answer('abort')
     return await state.clear()
+
+
+@router.message(Command("openconnect"))
+async def openconnect(message: types.Message, command: CommandObject, database: Database):
+    args = get_args(command)
+    if len(args) == 0 or len(args) > 1 or args[0] not in ['status', 'restart', 'stop', 'start']:
+        return await message.answer('invalid syntax, openconnect status|restart|stop|start')
+
+    result, error = database.ssh_manager.openconnect(command.args)
+    if not result:
+        return await message.answer(error)
+    return await message.answer(result)

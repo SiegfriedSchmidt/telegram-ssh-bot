@@ -44,8 +44,6 @@ def create_table_matplotlib(data, headers=None, title=None) -> BytesIO:
     if title:
         plt.title(title, fontsize=14, weight='bold', pad=20)
 
-    plt.tight_layout()
-
     buffer = BytesIO()
     plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
     buffer.seek(0)
