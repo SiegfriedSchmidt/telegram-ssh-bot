@@ -21,6 +21,7 @@ from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
 from lib.otp_manager import otp_manager, OTP_ACCESS_GRANTED_HOURS
 from lib.states.confirmation_state import ConfirmationState
+from lib.states.ssh_session_state import SSHSessionState
 from lib.utils.utils import get_args, large_respond, run_in_thread
 
 router = Router()
@@ -273,7 +274,7 @@ async def del_cmd(message: types.Message):
 
 
 @router.message(Command("openconnect"))
-async def openconnect(message: types.Message, command: CommandObject, database: Database):
+async def openconnect_cmd(message: types.Message, command: CommandObject, database: Database):
     args = get_args(command)
     if len(args) == 0 or len(args) > 1 or args[0] not in ['status', 'restart', 'stop', 'start']:
         return await message.answer('invalid syntax, openconnect status|restart|stop|start')
@@ -285,7 +286,7 @@ async def openconnect(message: types.Message, command: CommandObject, database: 
 
 
 @router.message(Command("access"))
-async def access(message: types.Message, command: CommandObject, database: Database):
+async def access_cmd(message: types.Message, command: CommandObject, database: Database):
     args = get_args(command)
     if len(args) != 1:
         return await message.answer('invalid syntax, you must provide only valid OTP code.')
@@ -294,6 +295,13 @@ async def access(message: types.Message, command: CommandObject, database: Datab
     if result:
         return await message.answer(result)
     return await message.answer(f'Access granted for {OTP_ACCESS_GRANTED_HOURS} hours.')
+
+
+@router.message(Command("activate"), flags={'otp': True})
+async def activate_cmd(message: types.Message, state: FSMContext, database: Database):
+    await state.set_state(SSHSessionState.session_activated)
+    await state.update_data(ssh_session=database.ssh_manager.child())
+    return await message.answer('SSH session activated! To deactivate enter /deactivate')
 
 
 @router.message(Command("niggachain"))

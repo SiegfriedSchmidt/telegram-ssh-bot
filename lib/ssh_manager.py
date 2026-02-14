@@ -19,6 +19,7 @@ class SSHManager:
         self.key = paramiko.Ed25519Key.from_private_key_file(key_path)
         self.ssh: paramiko.SSHClient | None = None
         self.shell: paramiko.Channel | None = None
+        ssh_logger.info("SSH manager created!")
 
     def get_running_containers(self) -> dict:
         result = self.run_single_command("docker ps -s --format json")
@@ -90,13 +91,6 @@ nohup sh -c '
             self.ssh = None
             self.shell = None
 
-    def __enter__(self):
-        self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.disconnect()
-
     def run_multiple_commands(self, commands: List[str], delay: float = 1) -> List[Tuple[str, str]]:
         if not commands:
             return []
@@ -125,6 +119,20 @@ nohup sh -c '
 
     def run_single_command(self, command: str) -> Tuple[str, str]:
         return self.run_multiple_commands([command])[0]
+
+    def child(self):
+        return SSHManager(self.host, self.port, self.username, key_path)
+
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.disconnect()
+
+    def __del__(self):
+        self.disconnect()
+        ssh_logger.info("SSH manager destroyed!")
 
 
 if __name__ == '__main__':

@@ -13,7 +13,7 @@ from lib.api.meme_api import get_meme
 from lib.bot_commands import bot_commands
 from lib.config_reader import config
 from lib.database import Database
-from lib.handlers import commands, messages, public_commands, errors, admin
+from lib.handlers import commands, messages, public_commands, errors, admin, ssh_session
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
@@ -34,7 +34,8 @@ class DispatcherOnShutdown(Dispatcher):
 
 async def notification(message: str, bot: Bot):
     main_logger.info(message)
-    await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
+    if storage.notification_enabled:
+        await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
 
 
 async def on_day_start(bot: Bot):
@@ -67,15 +68,9 @@ async def main():
     database = Database()
 
     async def on_shutdown():
-        if not storage.notification_enabled:
-            return
-
         await notification("Bot stopped.", bot)
 
     async def on_start():
-        if not storage.notification_enabled:
-            return
-
         containers_json = database.ssh_manager.get_running_containers()
         nextcloud_running = False
         for c in containers_json:
@@ -103,6 +98,7 @@ async def main():
     group_router = Router()
     group_router.message.filter(F.chat.type.in_(["group", "supergroup"]),
                                 F.chat.id == int(config.group_id.get_secret_value()))
+    group_router.include_router(ssh_session.router)
     group_router.include_router(commands.router)
     group_router.include_router(messages.router)
 

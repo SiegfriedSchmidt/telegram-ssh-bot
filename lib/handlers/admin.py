@@ -50,7 +50,7 @@ async def send(message: types.Message, database: Database, state: FSMContext):
 
 
 @router.message(Command("openconnect"))
-async def openconnect(message: types.Message, command: CommandObject, database: Database):
+async def openconnect_cmd(message: types.Message, command: CommandObject, database: Database):
     args = get_args(command)
     if len(args) == 0 or len(args) > 1 or args[0] not in ['status', 'restart', 'stop', 'start']:
         return await message.answer('invalid syntax, openconnect status|restart|stop|start')
