@@ -300,8 +300,13 @@ async def access_cmd(message: types.Message, command: CommandObject, database: D
 @router.message(Command("activate"), flags={'otp': True})
 async def activate_cmd(message: types.Message, state: FSMContext, database: Database):
     await state.set_state(SSHSessionState.session_activated)
-    await state.update_data(ssh_session=database.ssh_manager.child())
-    return await message.answer('SSH session activated! To deactivate enter /deactivate')
+    ssh_session = database.ssh_manager.interactive_session()
+    ssh_session.connect()
+    await state.update_data(ssh_session=ssh_session)
+    return await message.answer(
+        f'SSH session activated! To deactivate enter /deactivate\n```bash\n{ssh_session.banner}```',
+        parse_mode='Markdown'
+    )
 
 
 @router.message(Command("niggachain"))

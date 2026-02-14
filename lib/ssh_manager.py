@@ -7,6 +7,7 @@ import time
 from lib.config_reader import config
 from lib.init import key_path
 from lib.logger import ssh_logger
+from lib.ssh_session import SSHSession
 
 proj = "/home/DockerProjects"
 
@@ -18,7 +19,6 @@ class SSHManager:
         self.username = username
         self.key = paramiko.Ed25519Key.from_private_key_file(key_path)
         self.ssh: paramiko.SSHClient | None = None
-        self.shell: paramiko.Channel | None = None
         ssh_logger.info("SSH manager created!")
 
     def get_running_containers(self) -> dict:
@@ -89,7 +89,6 @@ nohup sh -c '
         if self.ssh:
             self.ssh.close()
             self.ssh = None
-            self.shell = None
 
     def run_multiple_commands(self, commands: List[str], delay: float = 1) -> List[Tuple[str, str]]:
         if not commands:
@@ -120,8 +119,8 @@ nohup sh -c '
     def run_single_command(self, command: str) -> Tuple[str, str]:
         return self.run_multiple_commands([command])[0]
 
-    def child(self):
-        return SSHManager(self.host, self.port, self.username, key_path)
+    def interactive_session(self):
+        return SSHSession(self.host, self.port, self.username, key_path)
 
     def __enter__(self):
         self.connect()
