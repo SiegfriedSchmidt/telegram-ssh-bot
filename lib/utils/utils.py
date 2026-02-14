@@ -36,7 +36,7 @@ async def run_in_thread(func, *args):
 
 
 async def large_respond(message: types.Message, obj: str | Iterable[str], timeout=3, characters=2000,
-                        maximum=6) -> bool:
+                        maximum=6, **kwargs) -> bool:
     if not obj:
         await message.answer("Nothing.")
         return True
@@ -45,7 +45,7 @@ async def large_respond(message: types.Message, obj: str | Iterable[str], timeou
             await message.answer("Too large.")
             return False
         for i in range(0, len(obj), characters):
-            await message.answer(obj[i:i + characters])
+            await message.answer(obj[i:i + characters], **kwargs)
             await asyncio.sleep(timeout)
     elif isinstance(obj, Iterable):
         divided_message = []
@@ -68,7 +68,7 @@ async def large_respond(message: types.Message, obj: str | Iterable[str], timeou
             return False
 
         for message in divided_message:
-            await message.answer(message)
+            await message.answer(message, **kwargs)
             await asyncio.sleep(timeout)
     else:
         await message.answer("I've get smth else than a str or Iterable.")

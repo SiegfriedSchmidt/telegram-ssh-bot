@@ -282,7 +282,7 @@ async def openconnect_cmd(message: types.Message, command: CommandObject, databa
     result, error = database.ssh_manager.openconnect(command.args)
     if not result:
         return await message.answer(error)
-    return await message.answer(result)
+    return await large_respond(message, result)
 
 
 @router.message(Command("access"))
