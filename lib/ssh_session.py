@@ -1,6 +1,10 @@
+from collections.abc import Callable
+from typing import Awaitable
+
 import paramiko
 import time
 import re
+import asyncio
 from lib.config_reader import config
 from lib.init import key_path
 from lib.logger import ssh_logger
@@ -136,14 +140,6 @@ SPECIAL_KEYS = {
     'del': '\x7f',  # Delete
 }
 
-PROMPT_PATTERN = re.compile(r'[\w.-]+@[\w.-]+:[~/\w\s.-]*[$#]\s*$', re.MULTILINE)
-
-
-# PROMPT_PATTERN = re.compile(
-#     r'\[\?2004h]0;.*?(?:\[[0-9;]*m)*[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+(?:\[[0-9;]*m)*:(?:\[[0-9;]*m)*[~/a-zA-Z0-9._-]*(?:\[[0-9;]*m)*[$#%](?:\[[0-9;]*m)*\s*$',
-#     re.MULTILINE
-# )
-
 
 def clean_text(text: str) -> str:
     if not text:
@@ -172,6 +168,10 @@ def clean_text(text: str) -> str:
     return cleaned
 
 
+async def async_print(*args, **kwargs):
+    print(*args, **kwargs)
+
+
 class SSHSession:
     def __init__(self, host: str, port: str | int, username: str, key_path: str):
         self.host = host
@@ -180,10 +180,10 @@ class SSHSession:
         self.key = paramiko.Ed25519Key.from_private_key_file(key_path)
         self.client: paramiko.SSHClient | None = None
         self.channel: paramiko.channel.Channel | None = None
-        self.banner = ""
+        self.with_callback = async_print
         self._connected = False
 
-    def connect(self) -> None:
+    async def connect(self, callback: Callable[[str], Awaitable[None]]) -> None:
         if self._connected:
             return
 
@@ -203,50 +203,40 @@ class SSHSession:
             time.sleep(1)
 
             self._connected = True
-            self.banner = self._read_output()
+            asyncio.create_task(self._read_output(callback))
             ssh_logger.info("Interactive SSH session established!")
         except Exception as e:
             ssh_logger.error(f"Connection failed: {e}", exc_info=True)
             self.close()
+            raise
 
-    def _read_output(self, timeout: float = 10, polling: float = 0.1) -> str:
+    async def _read_output(self, callback: Callable[[str], Awaitable[None]], polling: float = 0.5) -> None:
         if not self.channel:
-            return ""
+            return
 
-        output = ""
-        start = time.monotonic()
-
-        while time.monotonic() - start < timeout:
+        while True:
             if not self._connected:
                 break
 
             if self.channel.recv_ready():
                 chunk = self.channel.recv(8192).decode("utf-8", errors="replace")
-                output += chunk
+                await callback(clean_text(chunk))
 
                 if self.channel.recv_stderr_ready():
                     err = self.channel.recv_stderr(4096).decode("utf-8", errors="replace")
-                    output += f"\n[stderr] {err}"
+                    await callback(clean_text(f"\n[stderr] {err}"))
 
-            if not self.channel.recv_ready():
-                search = PROMPT_PATTERN.search(output)
-                if search:
-                    return clean_text(output)
-                time.sleep(polling)
+            await asyncio.sleep(polling)
 
-        return clean_text(output)
-
-    def send_command(self, command: str) -> str:
+    def send_command(self, command: str) -> None:
         if not self.channel or self.channel.closed:
             raise RuntimeError("No active shell channel")
 
         if command in SPECIAL_KEYS:
             self.channel.send(SPECIAL_KEYS[command])
-            return "Special key press."
-
-        self.channel.send((command.rstrip() + "\n").encode("utf-8"))
+        else:
+            self.channel.send((command.rstrip() + "\n").encode("utf-8"))
         ssh_logger.info(f"Sent command: {command}")
-        return self._read_output()
 
     def close(self) -> None:
         if not self._connected:
@@ -260,27 +250,31 @@ class SSHSession:
         self._connected = False
         ssh_logger.info(f"Interactive SSH session closed!")
 
-    def __enter__(self):
-        self.connect()
+    async def __aenter__(self):
+        await self.connect(self.with_callback)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
     def __del__(self):
         self.close()
 
 
-if __name__ == '__main__':
-    with SSHSession(
+async def main() -> None:
+    async with SSHSession(
             config.host.get_secret_value(),
             config.port.get_secret_value(),
             config.user.get_secret_value(),
             key_path
     ) as session:
-        print(session.banner)
-        print(session.send_command("whoami"))
-        print(session.send_command("uptime"))
-        print(session.send_command("pwd"))
-        print(session.send_command("cd /home/DockerProjects"))
-        print(session.send_command("pwd"))
+        session.send_command("whoami")
+        session.send_command("uptime")
+        session.send_command("pwd")
+        session.send_command("cd /home/DockerProjects")
+        session.send_command("pwd")
+        await asyncio.sleep(10)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

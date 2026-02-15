@@ -297,16 +297,25 @@ async def access_cmd(message: types.Message, command: CommandObject, database: D
     return await message.answer(f'Access granted for {OTP_ACCESS_GRANTED_HOURS} hours.')
 
 
+def stdout_callback_generator(message: types.Message):
+    async def stdout_callback(chunk: str):
+        if not chunk:
+            return
+        try:
+            await message.answer(f'```bash\n{chunk}```', parse_mode='Markdown')
+        except Exception:
+            pass
+
+    return stdout_callback
+
+
 @router.message(Command("activate"), flags={'otp': True})
 async def activate_cmd(message: types.Message, state: FSMContext, database: Database):
     await state.set_state(SSHSessionState.session_activated)
     ssh_session = database.ssh_manager.interactive_session()
-    ssh_session.connect()
+    await ssh_session.connect(stdout_callback_generator(message))
     await state.update_data(ssh_session=ssh_session)
-    return await message.answer(
-        f'SSH session activated! To deactivate enter /deactivate\n```bash\n{ssh_session.banner}```',
-        parse_mode='Markdown'
-    )
+    return await message.answer(f'SSH session activated! To deactivate enter /deactivate\n')
 
 
 @router.message(Command("niggachain"))
