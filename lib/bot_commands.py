@@ -24,6 +24,10 @@ bot_commands = [
     BotCommand(command='access', description='{otp_code:required} get privileged access'),
     BotCommand(command='activate', description='activate ssh session'),
     BotCommand(command='deactivate', description='deactivate ssh session'),
+    BotCommand(
+        command='download',
+        description='{url:optional} - download video, if url not provided, you should reply to message containing url'
+    ),
 ]
 
 text_bot_commands = '\n'.join([f"/{c.command} {c.description}" for c in bot_commands])

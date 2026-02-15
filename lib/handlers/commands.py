@@ -16,6 +16,7 @@ from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.bot_commands import text_bot_commands
 from lib.database import Database
+from lib.downloader import downloader
 from lib.init import data_folder_path
 from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
@@ -316,6 +317,27 @@ async def activate_cmd(message: types.Message, state: FSMContext, database: Data
     await ssh_session.connect(stdout_callback_generator(message))
     await state.update_data(ssh_session=ssh_session)
     return await message.answer(f'SSH session activated! To deactivate enter /deactivate\n')
+
+
+@router.message(Command("download"))
+async def download_cmd(message: types.Message, command: CommandObject):
+    args = get_args(command)
+    if message.reply_to_message:
+        url = message.reply_to_message.text
+    elif len(args) == 1:
+        url = args[0]
+    else:
+        return await message.answer('There is no url to download!')
+
+    answer = await message.answer("Downloading...")
+    filepath = await run_in_thread(downloader.download, url)
+    if not filepath:
+        return await answer.edit_text("Download failed.")
+
+    filename = os.path.basename(filepath)
+    video = FSInputFile(filepath, filename=filename)
+    await answer.delete()
+    return await message.answer_video(video, caption=filename)
 
 
 @router.message(Command("niggachain"))
