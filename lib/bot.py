@@ -4,6 +4,7 @@ import signal
 from typing import Any, Callable, Coroutine
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.exceptions import TelegramBadRequest
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -64,7 +65,8 @@ async def on_day_start(bot: Bot):
 
 async def main():
     # logging.basicConfig(level=logging.DEBUG)
-    bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=None))
+    session = AiohttpSession(proxy=config.proxy_url if config.proxy_url else None)
+    bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=None), session=session)
     database = Database()
 
     async def on_shutdown():
