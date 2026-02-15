@@ -20,11 +20,11 @@ async def error_handler(event: ErrorEvent):
         elif "caption is too long" in error_text.lower():
             await safe_send(event.update, "That caption was too long for Telegram!")
         else:
-            await safe_send(event.update, "Telegram rejected the message.")
+            await safe_send(event.update, f"Telegram rejected the message. {str(exception)}")
     elif isinstance(exception, TelegramAPIError):
-        await safe_send(event.update, "Telegram server is having a moment.")
+        await safe_send(event.update, f"Telegram server is having a moment. {str(exception)}")
     else:
-        await safe_send(event.update, "Unknown error occurred.")
+        await safe_send(event.update, f"Unknown error occurred. {str(exception)}")
 
     main_logger.exception("Telegram error caught globally", exc_info=exception)
 

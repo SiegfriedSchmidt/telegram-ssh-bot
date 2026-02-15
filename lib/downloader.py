@@ -1,6 +1,6 @@
 import yt_dlp
 from pathlib import Path
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Tuple
 
 from lib.config_reader import config
 from lib.init import videos_file_path
@@ -54,15 +54,12 @@ class Downloader:
             # Suppress verbose yt-dlp output
             self.ydl_opts.update({"quiet": True, "no_warnings": True})
 
-    def download(
-            self, url: str, *, return_info: bool = False
-    ) -> Optional[Union[str, dict]]:
+    def download(self, url: str) -> Tuple[Optional[Tuple[str, dict]], str]:
         """
         Download a single video by URL.
 
         Args:
             url: The video URL to download.
-            return_info: If True, returns the info dict instead of the filepath.
 
         Returns:
             The path to the downloaded file (str) or the yt-dlp info dict if return_info=True.
@@ -70,15 +67,12 @@ class Downloader:
         try:
             with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
-                if return_info:
-                    return info
-
                 # Construct final filename from yt-dlp info
-                filename = ydl.prepare_filename(info)
-                return filename
+                filepath = ydl.prepare_filename(info)
+                return (filepath, info), ''
         except Exception as e:
             main_logger.error(f"[Downloader] Error downloading {url}: {e}", exc_info=e)
-            return None
+            return None, str(e)
 
     def batch_download(self, urls: List[str]) -> List[Optional[str]]:
         """

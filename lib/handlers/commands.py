@@ -17,13 +17,13 @@ from lib.api.meme_api import get_meme
 from lib.bot_commands import text_bot_commands
 from lib.database import Database
 from lib.downloader import downloader
-from lib.init import data_folder_path
+from lib.init import data_folder_path, videos_file_path
 from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
 from lib.otp_manager import otp_manager, OTP_ACCESS_GRANTED_HOURS
 from lib.states.confirmation_state import ConfirmationState
 from lib.states.ssh_session_state import SSHSessionState
-from lib.utils.utils import get_args, large_respond, run_in_thread
+from lib.utils.utils import get_args, large_respond, run_in_thread, get_dir_size, clear_dir_contents
 
 router = Router()
 router.message.middleware(ChatActionMiddleware())
@@ -330,14 +330,35 @@ async def download_cmd(message: types.Message, command: CommandObject):
         return await message.answer('There is no url to download!')
 
     answer = await message.answer("Downloading...")
-    filepath = await run_in_thread(downloader.download, url)
-    if not filepath:
-        return await answer.edit_text("Download failed.")
+    result, error = await run_in_thread(downloader.download, url)
+    if error:
+        return await answer.edit_text(f"Download failed: {error}")
 
+    filepath, info = result
     filename = os.path.basename(filepath)
     video = FSInputFile(filepath, filename=filename)
     await answer.delete()
     return await message.answer_video(video, caption=filename)
+
+
+@router.message(Command("clear_videos"))
+async def clear_videos_cmd(message: types.Message, state: FSMContext):
+    space = round(get_dir_size(videos_file_path) / 1024 / 1024, 1)
+    if space < 1:
+        return await message.answer("Directory is empty.")
+    await state.set_state(ConfirmationState.clear_videos_confirmation)
+    return await message.answer(f'Do you want to delete all videos? Space will be freed: {space} MB.')
+
+
+@router.message(ConfirmationState.clear_videos_confirmation)
+async def clear_videos(message: types.Message, state: FSMContext):
+    if message.text.lower() == "y":
+        files = clear_dir_contents(videos_file_path)
+        text = '\n'.join(map(lambda t: f"{t[0]}: {round(t[1] / 1024 / 1024, 1)} MB", files))
+        await message.answer(f'Files deleted:\n{text}')
+    else:
+        await message.answer('abort')
+    return await state.clear()
 
 
 @router.message(Command("niggachain"))

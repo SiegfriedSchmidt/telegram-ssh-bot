@@ -1,7 +1,9 @@
 import json
 import asyncio
+import os
 from io import BytesIO
-from typing import List, Iterable
+from pathlib import Path
+from typing import List, Iterable, Tuple
 from aiogram import types
 
 from aiogram.filters import CommandObject
@@ -24,6 +26,29 @@ def load_with_attributes(filename: str, cls):
         data = json.load(f)
 
     return [cls.from_dict(item) for item in data]
+
+
+def get_dir_size(path: Path | str):
+    total = 0
+    with os.scandir(path) as it:
+        for entry in it:
+            if entry.is_file():
+                total += entry.stat().st_size
+            elif entry.is_dir():
+                total += get_dir_size(entry.path)
+    return total
+
+
+def clear_dir_contents(path: Path | str) -> List[Tuple[str, int]]:
+    files: List[Tuple[str, int]] = []
+    with os.scandir(path) as it:
+        for entry in it:
+            if entry.is_file():
+                files.append((entry.name, entry.stat().st_size))
+                os.remove(entry.path)
+            elif entry.is_dir():
+                files.extend(clear_dir_contents(entry.path))
+    return files
 
 
 def get_args(command: CommandObject):

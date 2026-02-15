@@ -5,3 +5,4 @@ class ConfirmationState(StatesGroup):
     update_confirmation = State()
     reboot_confirmation = State()
     admin_send_confirmation = State()
+    clear_videos_confirmation = State()

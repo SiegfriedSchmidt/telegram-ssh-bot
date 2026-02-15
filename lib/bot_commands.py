@@ -28,6 +28,7 @@ bot_commands = [
         command='download',
         description='{url:optional} - download video, if url not provided, you should reply to message containing url'
     ),
+    BotCommand(command='clear_videos', description='clear downloaded videos')
 ]
 
 text_bot_commands = '\n'.join([f"/{c.command} {c.description}" for c in bot_commands])
