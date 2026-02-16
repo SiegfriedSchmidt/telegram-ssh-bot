@@ -238,7 +238,7 @@ class SSHInteractiveSession:
             self.channel.send(SPECIAL_KEYS[command])
         else:
             self.channel.send((command.rstrip() + "\n").encode("utf-8"))
-        ssh_logger.info(f"Sent command: {command}")
+        ssh_logger.info(f"Sent command to {self.name}: {command}")
 
     def close(self) -> None:
         if not self._connected:

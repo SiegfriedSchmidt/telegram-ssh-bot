@@ -96,7 +96,7 @@ nohup sh -c '
         results = []
         with self:
             for i, command in enumerate(commands):
-                ssh_logger.info(f"Running command: {command}")
+                ssh_logger.info(f"Running command on {self.name}: {command}")
                 try:
                     stdin, stdout, stderr = self.ssh.exec_command(command)
 
@@ -111,7 +111,7 @@ nohup sh -c '
                         time.sleep(delay)
 
                 except Exception as e:
-                    results.append(('', f"Command failed: {str(e)}"))
+                    results.append(('', f"Command failed on {self.name}: {str(e)}"))
 
         return results
 

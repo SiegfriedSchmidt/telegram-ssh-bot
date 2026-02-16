@@ -14,7 +14,6 @@ class LoggerMiddleware(BaseMiddleware):
     ) -> Any:
         user_data = data['event_from_user']
         database: Database = data['database']
-        user = database.users.get(user_data.id)
 
         main_logger.info(
             f"id: {user_data.id}, "
