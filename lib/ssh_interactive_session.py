@@ -6,8 +6,9 @@ import time
 import re
 import asyncio
 from lib.config_reader import config
-from lib.init import key_path
+from lib.init import keys_folder_path
 from lib.logger import ssh_logger
+from lib.models import HostModel
 
 SPECIAL_KEYS = {
     # Arrow keys
@@ -148,7 +149,7 @@ def clean_text(text: str) -> str:
     # 1. Remove all ANSI CSI sequences (most common: colors, moves)
     text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
 
-    # 2. Remove OSC sequences (window title) — ESC ] ... BEL
+    # 2. Remove OSC sequences (window title) — ESC, ] ... BEL
     text = re.sub(r'\x1B].*?\x07', '', text, flags=re.DOTALL)
 
     # 3. Remove any leftover ESC or BEL characters
@@ -172,12 +173,13 @@ async def async_print(*args, **kwargs):
     print(*args, **kwargs)
 
 
-class SSHSession:
-    def __init__(self, host: str, port: str | int, username: str, key_path: str):
-        self.host = host
-        self.port = int(port)
-        self.username = username
-        self.key = paramiko.Ed25519Key.from_private_key_file(key_path)
+class SSHInteractiveSession:
+    def __init__(self, host: HostModel):
+        self.name = host.name.get_secret_value()
+        self.hostname = host.hostname.get_secret_value()
+        self.port = int(host.port.get_secret_value())
+        self.username = host.username.get_secret_value()
+        self.key = paramiko.Ed25519Key.from_private_key_file(keys_folder_path / host.key_name.get_secret_value())
         self.client: paramiko.SSHClient | None = None
         self.channel: paramiko.channel.Channel | None = None
         self.with_callback = async_print
@@ -191,7 +193,7 @@ class SSHSession:
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
-            self.client.connect(self.host, self.port, username=self.username, pkey=self.key)
+            self.client.connect(self.hostname, self.port, username=self.username, pkey=self.key)
 
             self.channel = self.client.invoke_shell(
                 term="vt100",  # "vt100", "xterm", "xterm-256color"
@@ -204,7 +206,7 @@ class SSHSession:
 
             self._connected = True
             asyncio.create_task(self._read_output(callback))
-            ssh_logger.info("Interactive SSH session established!")
+            ssh_logger.info(f"Interactive SSH session for {self.name} established!")
         except Exception as e:
             ssh_logger.error(f"Connection failed: {e}", exc_info=True)
             self.close()
@@ -248,7 +250,7 @@ class SSHSession:
             self.client.close()
 
         self._connected = False
-        ssh_logger.info(f"Interactive SSH session closed!")
+        ssh_logger.info(f"Interactive SSH session for {self.name} closed!")
 
     async def __aenter__(self):
         await self.connect(self.with_callback)
@@ -262,12 +264,7 @@ class SSHSession:
 
 
 async def main() -> None:
-    async with SSHSession(
-            config.host.get_secret_value(),
-            config.port.get_secret_value(),
-            config.user.get_secret_value(),
-            key_path
-    ) as session:
+    async with SSHInteractiveSession(config.hosts[0]) as session:
         session.send_command("whoami")
         session.send_command("uptime")
         session.send_command("pwd")

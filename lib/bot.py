@@ -18,6 +18,7 @@ from lib.handlers import commands, messages, public_commands, errors, admin, ssh
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
+from lib.ssh_manager import ssh_manager
 from lib.storage import storage
 
 nest_asyncio.apply()
@@ -73,7 +74,7 @@ async def main():
         await notification("Bot stopped.", bot)
 
     async def on_start():
-        containers_json = database.ssh_manager.get_running_containers()
+        containers_json = ssh_manager[config.main_host.get_secret_value()].get_running_containers()
         nextcloud_running = False
         for c in containers_json:
             if c["Image"] == 'nextcloud':

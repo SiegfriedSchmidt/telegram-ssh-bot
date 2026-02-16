@@ -20,7 +20,7 @@ bot_commands = [
     BotCommand(command='torip', description='get tor geoip'),
     BotCommand(command='openconnect', description='{status|restart|stop|start:required} manage openconnect service'),
     BotCommand(command='del', description='delete replied message'),
-    BotCommand(command='crash', description='some gambling'),
+    BotCommand(command='gamble', description='some gambling'),
     BotCommand(command='access', description='{otp_code:required} get privileged access'),
     BotCommand(command='activate', description='activate ssh session'),
     BotCommand(command='deactivate', description='deactivate ssh session'),
@@ -28,7 +28,8 @@ bot_commands = [
         command='download',
         description='{url:optional} - download video, if url not provided, you should reply to message containing url'
     ),
-    BotCommand(command='clear_videos', description='clear downloaded videos')
+    BotCommand(command='clear_videos', description='clear downloaded videos'),
+    BotCommand(command='switch', description='switch to another ssh host'),
 ]
 
 text_bot_commands = '\n'.join([f"/{c.command} {c.description}" for c in bot_commands])

@@ -3,13 +3,13 @@ from pydantic import SecretStr
 from typing import Type, Tuple, List
 
 from lib.init import settings_file_path
+from lib.models import HostModel
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(json_file=settings_file_path, json_file_encoding='utf-8', extra='allow')
-    host: SecretStr
-    port: SecretStr
-    user: SecretStr
+    hosts: List[HostModel]
+    main_host: SecretStr
     bot_token: SecretStr
     group_id: SecretStr
     admin_id: SecretStr

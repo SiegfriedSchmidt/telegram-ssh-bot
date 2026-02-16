@@ -1,13 +1,12 @@
 import asyncio
 import os
 import time
-import numpy as np
 
 from aiogram import Router, types
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile, BufferedInputFile
+from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove
 from aiogram.utils.chat_action import ChatActionMiddleware
 
 from lib.api.gemini_api import gemini_api
@@ -18,11 +17,14 @@ from lib.bot_commands import text_bot_commands
 from lib.database import Database
 from lib.downloader import downloader
 from lib.init import data_folder_path, videos_file_path
+from lib.keyboards.switch_host_keyboard import get_switch_host_keyboard
 from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
 from lib.otp_manager import otp_manager, OTP_ACCESS_GRANTED_HOURS
+from lib.ssh_manager import ssh_manager
 from lib.states.confirmation_state import ConfirmationState
 from lib.states.ssh_session_state import SSHSessionState
+from lib.states.switch_state import SwitchState
 from lib.utils.utils import get_args, large_respond, run_in_thread, get_dir_size, clear_dir_contents
 
 router = Router()
@@ -30,14 +32,15 @@ router.message.middleware(ChatActionMiddleware())
 
 
 @router.message(Command("h"))
-async def h_cmd(message: types.Message, state: FSMContext):
+async def h_cmd(message: types.Message):
     await message.answer(text_bot_commands)
 
 
 @router.message(Command("stats"))
-async def stats_cmd(message: types.Message, database: Database, state: FSMContext):
+async def stats_cmd(message: types.Message, database: Database):
     answer = await message.answer("gathering statistics...")
-    containers_ps, containers_stats, ram, cpu, uptime = await run_in_thread(database.ssh_manager.get_stats)
+    host = database.get_host(message.chat.id)
+    containers_ps, containers_stats, ram, cpu, uptime = await run_in_thread(ssh_manager[host].get_stats)
 
     containers_data = {}
     for c in containers_ps:
@@ -59,13 +62,14 @@ async def stats_cmd(message: types.Message, database: Database, state: FSMContex
 
 
 @router.message(Command("projects"))
-async def projects_cmd(message: types.Message, database: Database, state: FSMContext):
-    docker_projects = database.ssh_manager.get_docker_projects()
+async def projects_cmd(message: types.Message, database: Database):
+    host = database.get_host(message.chat.id)
+    docker_projects = ssh_manager[host].get_docker_projects()
     await message.answer('\n'.join(docker_projects))
 
 
 @router.message(Command("up"))
-async def up_cmd(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
+async def up_cmd(message: types.Message, command: CommandObject, database: Database):
     args = get_args(command)
     if len(args) == 0:
         return await message.answer('too few args!')
@@ -73,7 +77,8 @@ async def up_cmd(message: types.Message, command: CommandObject, database: Datab
     if len(args) > 1:
         return await message.answer('too many args!')
 
-    error = database.ssh_manager.up_project(args[0])
+    host = database.get_host(message.chat.id)
+    error = ssh_manager[host].up_project(args[0])
 
     if error:
         return await message.answer(error)
@@ -81,7 +86,7 @@ async def up_cmd(message: types.Message, command: CommandObject, database: Datab
 
 
 @router.message(Command("down"))
-async def down_cmd(message: types.Message, command: CommandObject, database: Database, state: FSMContext):
+async def down_cmd(message: types.Message, command: CommandObject, database: Database):
     args = get_args(command)
     if len(args) == 0:
         return await message.answer('too few args!')
@@ -92,7 +97,8 @@ async def down_cmd(message: types.Message, command: CommandObject, database: Dat
     if args[0] == "telegram-ssh-bot":
         return await message.answer("Nah, you won't do that!")
 
-    error = database.ssh_manager.down_project(args[0])
+    host = database.get_host(message.chat.id)
+    error = ssh_manager[host].down_project(args[0])
 
     if error:
         return await message.answer(error)
@@ -100,15 +106,16 @@ async def down_cmd(message: types.Message, command: CommandObject, database: Dat
 
 
 @router.message(Command("prune"))
-async def prune_cmd(message: types.Message, database: Database, state: FSMContext):
-    result = database.ssh_manager.docker_prune()
+async def prune_cmd(message: types.Message, database: Database):
+    host = database.get_host(message.chat.id)
+    result = ssh_manager[host].docker_prune()
     if result:
         return await message.answer(result)
     return await message.answer('no output')
 
 
 @router.message(Command("update"))
-async def update_cmd(message: types.Message, database: Database, state: FSMContext):
+async def update_cmd(message: types.Message, state: FSMContext):
     await state.set_state(ConfirmationState.update_confirmation)
     return await message.answer('Do you want to continue (y/n)?')
 
@@ -117,14 +124,15 @@ async def update_cmd(message: types.Message, database: Database, state: FSMConte
 async def update(message: types.Message, database: Database, state: FSMContext):
     if message.text == "y":
         await message.answer('performing image update...')
-        database.ssh_manager.update()
+        host = database.get_host(message.chat.id)
+        ssh_manager[host].update()
     else:
         await message.answer('abort')
     return await state.clear()
 
 
-@router.message(Command("reboot"))
-async def reboot_cmd(message: types.Message, database: Database, state: FSMContext):
+@router.message(Command("reboot"), flags={'otp': True})
+async def reboot_cmd(message: types.Message, state: FSMContext):
     await state.set_state(ConfirmationState.reboot_confirmation)
     return await message.answer('Do you want to continue (y/n)?')
 
@@ -133,7 +141,8 @@ async def reboot_cmd(message: types.Message, database: Database, state: FSMConte
 async def reboot(message: types.Message, database: Database, state: FSMContext):
     if message.text.lower() == "bipki":
         await message.answer('performing reboot...')
-        database.ssh_manager.reboot()
+        host = database.get_host(message.chat.id)
+        ssh_manager[host].reboot()
     else:
         await message.answer('abort')
     return await state.clear()
@@ -225,7 +234,8 @@ async def ask_cmd(message: types.Message, command: CommandObject):
 
 @router.message(Command("curl"), flags={'otp': True})
 async def curl_cmd(message: types.Message, database: Database, command: CommandObject):
-    result, error = database.ssh_manager.curl(command.args)
+    host = database.get_host(message.chat.id)
+    result, error = ssh_manager[host].curl(command.args)
     if not result:
         return await message.answer(error)
     return await message.answer(result)
@@ -249,8 +259,9 @@ async def geoip_cmd(message: types.Message, command: CommandObject):
 
 
 @router.message(Command("torip"))
-async def torip_cmd(message: types.Message, database: Database, command: CommandObject):
-    result, error = database.ssh_manager.curl('eth0.me --connect-timeout 5 --proxy http://192.168.192.1:18082')
+async def torip_cmd(message: types.Message, database: Database):
+    host = database.get_host(message.chat.id)
+    result, error = ssh_manager[host].curl('eth0.me --connect-timeout 5 --proxy http://192.168.192.1:18082')
     if not result:
         return await message.answer(error)
 
@@ -270,7 +281,7 @@ async def del_cmd(message: types.Message):
 
     try:
         return await message.reply_to_message.delete()
-    except Exception as e:
+    except Exception:
         return await message.answer("I have no permission to delete this message.")
 
 
@@ -280,14 +291,15 @@ async def openconnect_cmd(message: types.Message, command: CommandObject, databa
     if len(args) == 0 or len(args) > 1 or args[0] not in ['status', 'restart', 'stop', 'start']:
         return await message.answer('invalid syntax, openconnect status|restart|stop|start')
 
-    result, error = database.ssh_manager.openconnect(command.args)
+    host = database.get_host(message.chat.id)
+    result, error = ssh_manager[host].openconnect(command.args)
     if not result:
         return await message.answer(error)
     return await large_respond(message, result)
 
 
 @router.message(Command("access"))
-async def access_cmd(message: types.Message, command: CommandObject, database: Database):
+async def access_cmd(message: types.Message, command: CommandObject):
     args = get_args(command)
     if len(args) != 1:
         return await message.answer('invalid syntax, you must provide only valid OTP code.')
@@ -313,7 +325,8 @@ def stdout_callback_generator(message: types.Message):
 @router.message(Command("activate"), flags={'otp': True})
 async def activate_cmd(message: types.Message, state: FSMContext, database: Database):
     await state.set_state(SSHSessionState.session_activated)
-    ssh_session = database.ssh_manager.interactive_session()
+    host = database.get_host(message.chat.id)
+    ssh_session = ssh_manager.interactive_session(host)
     await ssh_session.connect(stdout_callback_generator(message))
     await state.update_data(ssh_session=ssh_session)
     return await message.answer(f'SSH session activated! To deactivate enter /deactivate\n')
@@ -347,7 +360,7 @@ async def clear_videos_cmd(message: types.Message, state: FSMContext):
     if space < 1:
         return await message.answer("Directory is empty.")
     await state.set_state(ConfirmationState.clear_videos_confirmation)
-    return await message.answer(f'Do you want to delete all videos? Space will be freed: {space} MB.')
+    return await message.answer(f'Do you want to delete all videos (y/n)? Space will be freed: {space} MB.')
 
 
 @router.message(ConfirmationState.clear_videos_confirmation)
@@ -361,19 +374,39 @@ async def clear_videos(message: types.Message, state: FSMContext):
     return await state.clear()
 
 
+@router.message(Command("switch"))
+async def switch_cmd(message: types.Message, state: FSMContext):
+    await state.set_state(SwitchState.switching)
+    await message.answer(
+        f"Choose host:",
+        reply_markup=get_switch_host_keyboard(ssh_manager.get_hosts())
+    )
+
+
+@router.message(SwitchState.switching)
+async def switch(message: types.Message, database: Database, state: FSMContext):
+    await state.clear()
+    result = database.set_host(message.chat.id, message.text)
+    if not result:
+        return await message.answer('This host does not exist!', reply_markup=ReplyKeyboardRemove())
+    return await message.answer(f'Host has been switched!', reply_markup=ReplyKeyboardRemove())
+
+
 @router.message(Command("niggachain"))
 async def chain_cmd(message: types.Message):
     return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')
 
 
-@router.message(Command("crash"))
-async def crash_cmd(message: types.Message, command: CommandObject):
-    multiplier = 1.0
-    msg = await message.answer("🚀 Launching... 1.00×")
+@router.message(Command("gamble"))
+async def gamble_cmd(message: types.Message):
+    dice_msg = await message.answer_dice(emoji="🎰")
+    result = dice_msg.dice.value
 
-    while True:
-        await asyncio.sleep(np.random.uniform(1, 2))
-        multiplier += np.random.uniform(0.05, 0.35)
-        if multiplier > 10 or np.random.random() < 0.12:  # crash!
-            return await msg.edit_text(f"💥 CRASHED at {multiplier:.2f}×\nYou didn't cash out!")
-        await msg.edit_text(f"🚀 {multiplier:.2f}×\nType /cashout to save your bet!")
+    if result == 64:
+        await message.answer(f"🎉 **JACKPOT!** You win 1000 coins! 🎉. {result}")
+    elif result >= 60:
+        await message.answer(f"🌟 **Big win!** +500 coins! 🌟. {result}")
+    elif result >= 50:
+        await message.answer(f"✨ Nice win! +100 coins! ✨. {result}")
+    else:
+        await message.answer(f"😢 Better luck next time!. {result}")
