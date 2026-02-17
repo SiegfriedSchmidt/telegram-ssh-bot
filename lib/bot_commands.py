@@ -29,6 +29,10 @@ bot_commands = [
         description='{url:optional} - download video, if url not provided, you should reply to message containing url'
     ),
     BotCommand(command='clear_videos', description='clear downloaded videos'),
+    BotCommand(
+        command='delete_video',
+        description='{filename:optional} - delete video, if filename not provided, you should reply to message containing filename'
+    ),
     BotCommand(command='switch', description='switch to another ssh host'),
 ]
 

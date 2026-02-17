@@ -15,7 +15,7 @@ from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.bot_commands import text_bot_commands
 from lib.downloader import downloader
-from lib.init import data_folder_path, videos_file_path
+from lib.init import data_folder_path, videos_folder_path
 from lib.keyboards.switch_host_keyboard import get_switch_host_keyboard
 from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
@@ -26,7 +26,7 @@ from lib.ssh_manager import ssh_manager
 from lib.states.confirmation_state import ConfirmationState
 from lib.states.ssh_session_state import SSHSessionState
 from lib.states.switch_state import SwitchState
-from lib.utils.utils import get_args, large_respond, run_in_thread, get_dir_size, clear_dir_contents
+from lib.utils.utils import get_args, large_respond, run_in_thread, get_dir_size, clear_dir_contents, remove_file
 
 
 def create_router():
@@ -321,7 +321,7 @@ def create_router():
 
     @router.message(Command("clear_videos"))
     async def clear_videos_cmd(message: types.Message, state: FSMContext):
-        space = round(get_dir_size(videos_file_path) / 1024 / 1024, 1)
+        space = round(get_dir_size(videos_folder_path) / 1024 / 1024, 1)
         if space < 1:
             return await message.answer("Directory is empty.")
         await state.set_state(ConfirmationState.clear_videos_confirmation)
@@ -330,12 +330,30 @@ def create_router():
     @router.message(ConfirmationState.clear_videos_confirmation)
     async def clear_videos(message: types.Message, state: FSMContext):
         if message.text.lower() == "y":
-            files = clear_dir_contents(videos_file_path)
+            files = clear_dir_contents(videos_folder_path)
             text = '\n'.join(map(lambda t: f"{t[0]}: {round(t[1] / 1024 / 1024, 1)} MB", files))
             await message.answer(f'Files deleted:\n{text}')
         else:
             await message.answer('abort')
         return await state.clear()
+
+    @router.message(Command("delete_video"))
+    async def delete_video_cmd(message: types.Message, command: CommandObject):
+        args = get_args(command)
+        if message.reply_to_message:
+            filename = message.reply_to_message.text
+            if not filename:
+                filename = message.reply_to_message.caption
+        elif len(args) == 1:
+            filename = args[0]
+        else:
+            return await message.answer('There is no video to delete!')
+
+        try:
+            filesize = remove_file(videos_folder_path / filename)
+            await message.answer(f'Video {filename} - {round(filesize / 1024 / 1024, 1)} MB deleted.')
+        except FileNotFoundError:
+            return await message.answer('Video not found!')
 
     @router.message(Command("switch"))
     async def switch_cmd(message: types.Message, state: FSMContext):

@@ -13,4 +13,4 @@ if not os.path.exists(data_folder_path):
 keys_folder_path = secret_folder_path / ".ssh_keys"
 settings_file_path = secret_folder_path / "settings.json"
 persistent_file_path = data_folder_path / "persistent_data.json"
-videos_file_path = data_folder_path / 'videos'
+videos_folder_path = data_folder_path / 'videos'

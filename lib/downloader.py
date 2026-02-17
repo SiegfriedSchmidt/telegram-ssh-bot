@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional, Union, List, Tuple
 
 from lib.config_reader import config
-from lib.init import videos_file_path
+from lib.init import videos_folder_path
 from lib.logger import main_logger
 
 
@@ -91,7 +91,7 @@ class Downloader:
         return results
 
 
-downloader = Downloader(videos_file_path, logger=False)
+downloader = Downloader(videos_folder_path, logger=False)
 
 
 def main():

@@ -1,4 +1,3 @@
-import json
 import asyncio
 import os
 from io import BytesIO
@@ -13,19 +12,6 @@ def get_file_from_str(string: str, filename: str) -> BytesIO:
     file = BytesIO(str(string).encode("utf-8"))
     file.name = filename
     return file
-
-
-def save_with_attributes(instances: List[object], filename: str):
-    data = [obj.to_dict() for obj in instances]
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=2)
-
-
-def load_with_attributes(filename: str, cls):
-    with open(filename, 'r') as f:
-        data = json.load(f)
-
-    return [cls.from_dict(item) for item in data]
 
 
 def get_dir_size(path: Path | str):
@@ -49,6 +35,14 @@ def clear_dir_contents(path: Path | str) -> List[Tuple[str, int]]:
             elif entry.is_dir():
                 files.extend(clear_dir_contents(entry.path))
     return files
+
+
+def remove_file(path: Path) -> int:
+    if not path.is_file():
+        raise FileNotFoundError()
+    filesize = path.stat().st_size
+    os.remove(path)
+    return filesize
 
 
 def get_args(command: CommandObject):
