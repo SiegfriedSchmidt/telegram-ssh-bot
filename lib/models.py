@@ -9,5 +9,5 @@ class HostModel(BaseModel):
     key_name: SecretStr
 
 
-class UserDataModel(BaseModel):
+class UserModel(BaseModel):
     host: str

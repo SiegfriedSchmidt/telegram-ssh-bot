@@ -11,9 +11,9 @@ class Settings(BaseSettings):
     hosts: List[HostModel]
     main_host: SecretStr
     bot_token: SecretStr
-    group_id: SecretStr
-    admin_id: SecretStr
-    notification_ids: List[SecretStr]
+    group_id: int
+    admin_ids: List[int]
+    notification_ids: List[int]
     gemini_api_key: SecretStr
     otp_secret: SecretStr
     proxy_url: str = ''

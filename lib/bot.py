@@ -2,7 +2,7 @@ import asyncio
 import nest_asyncio
 import signal
 from typing import Any, Callable, Coroutine
-from aiogram import Bot, Dispatcher, F, Router
+from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.exceptions import TelegramBadRequest
@@ -14,7 +14,7 @@ from lib.api.meme_api import get_meme
 from lib.bot_commands import bot_commands
 from lib.config_reader import config
 from lib.database import Database
-from lib.handlers import commands, messages, public_commands, errors, admin, ssh_session
+from lib.routers import public_commands, errors, admin, group
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
@@ -37,7 +37,7 @@ class DispatcherOnShutdown(Dispatcher):
 async def notification(message: str, bot: Bot):
     main_logger.info(message)
     if storage.notification_enabled:
-        await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
+        await bot.send_message(config.group_id, message, parse_mode=None)
 
 
 async def on_day_start(bot: Bot):
@@ -45,19 +45,18 @@ async def on_day_start(bot: Bot):
     # message = f'Daily joke:\n\n{joke}'
     # await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
 
-    group_id = int(config.group_id.get_secret_value())
     try:
         url, caption = await get_meme()
         try:
             if url.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                await bot.send_photo(group_id, url, caption=caption)
+                await bot.send_photo(config.group_id, url, caption=caption)
             elif url.endswith('.gif'):
-                await bot.send_animation(group_id, url, caption=caption)
+                await bot.send_animation(config.group_id, url, caption=caption)
             elif url.endswith(('.mp4', '.gifv', '.webm')):
-                await bot.send_video(group_id, url, caption=caption)
+                await bot.send_video(config.group_id, url, caption=caption)
         except TelegramBadRequest:
             await asyncio.sleep(1)
-            await bot.send_message(group_id, f"{url}\n\n{caption}", disable_web_page_preview=False)
+            await bot.send_message(config.group_id, f"{url}\n\n{caption}", disable_web_page_preview=False)
     except Exception as e:
         main_logger.exception(e)
 
@@ -97,19 +96,8 @@ async def main():
     dp.message.middleware(LoggerMiddleware())
     dp.message.middleware(AccessMiddleware())
 
-    # group router
-    group_router = Router()
-    group_router.message.filter(F.chat.type.in_(["group", "supergroup"]),
-                                F.chat.id == int(config.group_id.get_secret_value()))
-    group_router.include_router(ssh_session.router)
-    group_router.include_router(commands.router)
-    group_router.include_router(messages.router)
-
-    # include routers
-    dp.include_router(errors.router)
-    dp.include_router(public_commands.router)
-    dp.include_router(admin.router)
-    dp.include_router(group_router)
+    # routers
+    dp.include_routers(errors.router, public_commands.router, admin.router, group.router)
 
     await on_start()
     await bot.delete_webhook(drop_pending_updates=True)
