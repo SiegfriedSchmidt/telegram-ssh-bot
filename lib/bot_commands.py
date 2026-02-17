@@ -22,7 +22,7 @@ bot_commands = [
     BotCommand(command='del', description='delete replied message'),
     BotCommand(command='gamble', description='some gambling'),
     BotCommand(command='access', description='{otp_code:required} get privileged access'),
-    BotCommand(command='activate', description='activate ssh session'),
+    BotCommand(command='activate', description='{terminal_type:optional} activate ssh session in text|image terminal'),
     BotCommand(command='deactivate', description='deactivate ssh session'),
     BotCommand(
         command='download',

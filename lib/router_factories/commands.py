@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+from io import BytesIO
 
 from aiogram import Router, types
 from aiogram.exceptions import TelegramBadRequest
@@ -20,6 +21,7 @@ from lib.keyboards.switch_host_keyboard import get_switch_host_keyboard
 from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
 from lib.middlewares.user_middleware import UserMiddleware
+from lib.models import TerminalType
 from lib.temporal_storage import User
 from lib.otp_manager import otp_manager, OTP_ACCESS_GRANTED_HOURS
 from lib.ssh_manager import ssh_manager
@@ -279,24 +281,44 @@ def create_router():
             return await message.answer(result)
         return await message.answer(f'Access granted for {OTP_ACCESS_GRANTED_HOURS} hours.')
 
-    def stdout_callback_generator(message: types.Message):
+    def stdout_callback_image_generator(message: types.Message):
+        async def stdout_callback(chunk: BytesIO):
+            try:
+                input_file = BufferedInputFile(chunk.read(), filename="terminal.png")
+                await message.answer_photo(input_file)
+            except Exception as e:
+                await message.answer(str(e))
+
+        return stdout_callback
+
+    def stdout_callback_text_generator(message: types.Message):
         async def stdout_callback(chunk: str):
             if not chunk:
                 return
             try:
                 await message.answer(f'```bash\n{chunk}```', parse_mode='Markdown')
-            except Exception:
-                pass
+            except Exception as e:
+                await message.answer(str(e))
 
         return stdout_callback
 
     @router.message(Command("activate"), flags={'otp': True})
-    async def activate_cmd(message: types.Message, state: FSMContext, user: User):
+    async def activate_cmd(message: types.Message, state: FSMContext, user: User, command: CommandObject):
+        terminal_type = 'text'
+        args = get_args(command)
+        if len(args) == 1:
+            terminal_type = args[0]
+            if terminal_type not in TerminalType:
+                return await message.answer('Invalid terminal type! Should be text|image.')
+
+        await message.answer(f'SSH session activated in {terminal_type} terminal! To deactivate enter /deactivate\n')
         await state.set_state(SSHSessionState.session_activated)
-        ssh_session = ssh_manager.interactive_session(user.host)
-        await ssh_session.connect(stdout_callback_generator(message))
-        await state.update_data(ssh_session=ssh_session)
-        return await message.answer(f'SSH session activated! To deactivate enter /deactivate\n')
+        ssh_session = ssh_manager.interactive_session(user.host, terminal_type)
+        await ssh_session.connect(
+            stdout_callback_text_generator(message) if terminal_type == TerminalType.text else
+            stdout_callback_image_generator(message)
+        )
+        return await state.update_data(ssh_session=ssh_session)
 
     @router.message(Command("download"))
     async def download_cmd(message: types.Message, command: CommandObject):

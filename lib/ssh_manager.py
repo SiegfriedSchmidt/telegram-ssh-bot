@@ -1,6 +1,6 @@
 from typing import List
 from lib.config_reader import config
-from lib.models import HostModel
+from lib.models import HostModel, TerminalType
 from lib.ssh_commands import SSHCommands
 from lib.ssh_interactive_session import SSHInteractiveSession
 
@@ -15,10 +15,14 @@ class SSHManager:
             raise KeyError(name)
         return self._commands[name]
 
-    def interactive_session(self, name: str):
+    def interactive_session(self, name: str, terminal_type: TerminalType) -> SSHInteractiveSession:
         if name not in self._hosts:
             raise KeyError(name)
-        return SSHInteractiveSession(self._hosts[name])
+        if terminal_type == TerminalType.text:
+            width, height = 40, 24
+        else:
+            width, height = 120, 40
+        return SSHInteractiveSession(self._hosts[name], terminal_type, width, height)
 
     def get_hosts(self):
         return list(self._hosts.keys())

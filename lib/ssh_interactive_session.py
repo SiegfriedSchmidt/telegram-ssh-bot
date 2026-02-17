@@ -1,14 +1,15 @@
 from collections.abc import Callable
+from io import BytesIO
 from typing import Awaitable
 
 import paramiko
 import time
-import re
 import asyncio
 from lib.config_reader import config
+from lib.emulated_terminal import EmulatedTerminal
 from lib.init import keys_folder_path
 from lib.logger import ssh_logger
-from lib.models import HostModel
+from lib.models import HostModel, TerminalType
 
 SPECIAL_KEYS = {
     # Arrow keys
@@ -142,50 +143,26 @@ SPECIAL_KEYS = {
 }
 
 
-def clean_text(text: str) -> str:
-    if not text:
-        return ""
-
-    # 1. Remove all ANSI CSI sequences (most common: colors, moves)
-    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
-
-    # 2. Remove OSC sequences (window title) — ESC, ] ... BEL
-    text = re.sub(r'\x1B].*?\x07', '', text, flags=re.DOTALL)
-
-    # 3. Remove any leftover ESC or BEL characters
-    text = re.sub(r'[\x1B\x07]', '', text)
-
-    # 4. Remove all other control characters (except \n and \t)
-    text = re.sub(r'[\x00-\x08\x0B-\x1F\x7F]', '', text)
-
-    # 5. Normalize line endings and collapse multiple empty lines
-    text = text.replace('\r\n', '\n').replace('\r', '\n')
-    text = re.sub(r'\n{3,}', '\n\n', text)  # max 1 empty line between blocks
-
-    # 6. Strip leading/trailing whitespace per line + overall
-    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
-    cleaned = '\n'.join(lines).strip()
-
-    return cleaned
-
-
 async def async_print(*args, **kwargs):
     print(*args, **kwargs)
 
 
 class SSHInteractiveSession:
-    def __init__(self, host: HostModel):
+    def __init__(self, host: HostModel, terminal_type: TerminalType = TerminalType.text, width: int = 120,
+                 height: int = 40):
         self.name = host.name.get_secret_value()
         self.hostname = host.hostname.get_secret_value()
         self.port = int(host.port.get_secret_value())
         self.username = host.username.get_secret_value()
         self.key = paramiko.Ed25519Key.from_private_key_file(keys_folder_path / host.key_name.get_secret_value())
+        self.terminal_type = terminal_type
+        self.emulated_terminal = EmulatedTerminal(width, height)
         self.client: paramiko.SSHClient | None = None
         self.channel: paramiko.channel.Channel | None = None
         self.with_callback = async_print
         self._connected = False
 
-    async def connect(self, callback: Callable[[str], Awaitable[None]]) -> None:
+    async def connect(self, callback: Callable[[str | BytesIO], Awaitable[None]]) -> None:
         if self._connected:
             return
 
@@ -196,9 +173,9 @@ class SSHInteractiveSession:
             self.client.connect(self.hostname, self.port, username=self.username, pkey=self.key)
 
             self.channel = self.client.invoke_shell(
-                term="vt100",  # "vt100", "xterm", "xterm-256color"
-                width=120,
-                height=40
+                term="xterm-256color",  # "vt100", "xterm", "xterm-256color"
+                width=self.emulated_terminal.width,
+                height=self.emulated_terminal.height
             )
 
             # Give remote time to send banner / MOTD / prompt
@@ -212,7 +189,7 @@ class SSHInteractiveSession:
             self.close()
             raise
 
-    async def _read_output(self, callback: Callable[[str], Awaitable[None]], polling: float = 0.5) -> None:
+    async def _read_output(self, callback: Callable[[str | BytesIO], Awaitable[None]], polling: float = 1) -> None:
         if not self.channel:
             return
 
@@ -221,12 +198,15 @@ class SSHInteractiveSession:
                 break
 
             if self.channel.recv_ready():
-                chunk = self.channel.recv(8192).decode("utf-8", errors="replace")
-                await callback(clean_text(chunk))
+                self.emulated_terminal.feed(self.channel.recv(8192))
 
                 if self.channel.recv_stderr_ready():
-                    err = self.channel.recv_stderr(4096).decode("utf-8", errors="replace")
-                    await callback(clean_text(f"\n[stderr] {err}"))
+                    self.emulated_terminal.feed(self.channel.recv_stderr(4096))
+
+                if self.terminal_type == TerminalType.text:
+                    await callback(self.emulated_terminal.text())
+                else:
+                    await callback(self.emulated_terminal.render())
 
             await asyncio.sleep(polling)
 
@@ -234,8 +214,9 @@ class SSHInteractiveSession:
         if not self.channel or self.channel.closed:
             raise RuntimeError("No active shell channel")
 
-        if command in SPECIAL_KEYS:
-            self.channel.send(SPECIAL_KEYS[command])
+        lower = command.lower()
+        if lower in SPECIAL_KEYS:
+            self.channel.send(SPECIAL_KEYS[lower])
         else:
             self.channel.send((command.rstrip() + "\n").encode("utf-8"))
         ssh_logger.info(f"Sent command to {self.name}: {command}")
@@ -265,11 +246,15 @@ class SSHInteractiveSession:
 
 async def main() -> None:
     async with SSHInteractiveSession(config.hosts[0]) as session:
+        session.send_command("echo $TERM")
+        session.send_command("ls -la --color=always")
+        session.send_command("echo -e '\\033[38;5;196mHELLO\\033[0m'")
         session.send_command("whoami")
         session.send_command("uptime")
         session.send_command("pwd")
         session.send_command("cd /home/DockerProjects")
         session.send_command("pwd")
+        session.send_command("htop")
         await asyncio.sleep(10)
 
 
