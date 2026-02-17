@@ -14,12 +14,13 @@ from lib.api.geoip_api import geoip
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.bot_commands import text_bot_commands
-from lib.database import Database
 from lib.downloader import downloader
 from lib.init import data_folder_path, videos_file_path
 from lib.keyboards.switch_host_keyboard import get_switch_host_keyboard
 from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
+from lib.middlewares.user_middleware import UserMiddleware
+from lib.temporal_storage import User
 from lib.otp_manager import otp_manager, OTP_ACCESS_GRANTED_HOURS
 from lib.ssh_manager import ssh_manager
 from lib.states.confirmation_state import ConfirmationState
@@ -31,16 +32,16 @@ from lib.utils.utils import get_args, large_respond, run_in_thread, get_dir_size
 def create_router():
     router = Router()
     router.message.middleware(ChatActionMiddleware())
+    router.message.middleware(UserMiddleware())
 
     @router.message(Command("h"))
     async def h_cmd(message: types.Message):
         await message.answer(text_bot_commands)
 
     @router.message(Command("stats"))
-    async def stats_cmd(message: types.Message, database: Database):
+    async def stats_cmd(message: types.Message, user: User):
         answer = await message.answer("gathering statistics...")
-        host = database.get_host(message.from_user.id)
-        containers_ps, containers_stats, ram, cpu, uptime = await run_in_thread(ssh_manager[host].get_stats)
+        containers_ps, containers_stats, ram, cpu, uptime = await run_in_thread(ssh_manager[user.host].get_stats)
 
         containers_data = {}
         for c in containers_ps:
@@ -61,13 +62,12 @@ def create_router():
         await message.answer_photo(file, caption=f'Stats {time.strftime("%Y-%m-%d %H:%M:%S")}')
 
     @router.message(Command("projects"))
-    async def projects_cmd(message: types.Message, database: Database):
-        host = database.get_host(message.from_user.id)
-        docker_projects = ssh_manager[host].get_docker_projects()
+    async def projects_cmd(message: types.Message, user: User):
+        docker_projects = ssh_manager[user.host].get_docker_projects()
         await message.answer('\n'.join(docker_projects))
 
     @router.message(Command("up"))
-    async def up_cmd(message: types.Message, command: CommandObject, database: Database):
+    async def up_cmd(message: types.Message, command: CommandObject, user: User):
         args = get_args(command)
         if len(args) == 0:
             return await message.answer('too few args!')
@@ -75,15 +75,13 @@ def create_router():
         if len(args) > 1:
             return await message.answer('too many args!')
 
-        host = database.get_host(message.from_user.id)
-        error = ssh_manager[host].up_project(args[0])
-
+        error = ssh_manager[user.host].up_project(args[0])
         if error:
             return await message.answer(error)
         return await message.answer('good')
 
     @router.message(Command("down"))
-    async def down_cmd(message: types.Message, command: CommandObject, database: Database):
+    async def down_cmd(message: types.Message, command: CommandObject, user: User):
         args = get_args(command)
         if len(args) == 0:
             return await message.answer('too few args!')
@@ -94,17 +92,14 @@ def create_router():
         if args[0] == "telegram-ssh-bot":
             return await message.answer("Nah, you won't do that!")
 
-        host = database.get_host(message.from_user.id)
-        error = ssh_manager[host].down_project(args[0])
-
+        error = ssh_manager[user.host].down_project(args[0])
         if error:
             return await message.answer(error)
         return await message.answer('good')
 
     @router.message(Command("prune"))
-    async def prune_cmd(message: types.Message, database: Database):
-        host = database.get_host(message.from_user.id)
-        result = ssh_manager[host].docker_prune()
+    async def prune_cmd(message: types.Message, user: User):
+        result = ssh_manager[user.host].docker_prune()
         if result:
             return await message.answer(result)
         return await message.answer('no output')
@@ -115,11 +110,10 @@ def create_router():
         return await message.answer('Do you want to continue (y/n)?')
 
     @router.message(ConfirmationState.update_confirmation)
-    async def update(message: types.Message, database: Database, state: FSMContext):
+    async def update(message: types.Message, user: User, state: FSMContext):
         if message.text == "y":
             await message.answer('performing image update...')
-            host = database.get_host(message.from_user.id)
-            ssh_manager[host].update()
+            ssh_manager[user.host].update()
         else:
             await message.answer('abort')
         return await state.clear()
@@ -130,11 +124,10 @@ def create_router():
         return await message.answer('Do you want to continue (y/n)?')
 
     @router.message(ConfirmationState.reboot_confirmation)
-    async def reboot(message: types.Message, database: Database, state: FSMContext):
+    async def reboot(message: types.Message, user: User, state: FSMContext):
         if message.text.lower() == "bipki":
             await message.answer('performing reboot...')
-            host = database.get_host(message.from_user.id)
-            ssh_manager[host].reboot()
+            ssh_manager[user.host].reboot()
         else:
             await message.answer('abort')
         return await state.clear()
@@ -218,9 +211,8 @@ def create_router():
         return await answer.delete()
 
     @router.message(Command("curl"), flags={'otp': True})
-    async def curl_cmd(message: types.Message, database: Database, command: CommandObject):
-        host = database.get_host(message.from_user.id)
-        result, error = ssh_manager[host].curl(command.args)
+    async def curl_cmd(message: types.Message, user: User, command: CommandObject):
+        result, error = ssh_manager[user.host].curl(command.args)
         if not result:
             return await message.answer(error)
         return await message.answer(result)
@@ -242,9 +234,8 @@ def create_router():
         return await message.answer(text)
 
     @router.message(Command("torip"))
-    async def torip_cmd(message: types.Message, database: Database):
-        host = database.get_host(message.from_user.id)
-        result, error = ssh_manager[host].curl('eth0.me --connect-timeout 5 --proxy http://192.168.192.1:18082')
+    async def torip_cmd(message: types.Message, user: User):
+        result, error = ssh_manager[user.host].curl('eth0.me --connect-timeout 5 --proxy http://192.168.192.1:18082')
         if not result:
             return await message.answer(error)
 
@@ -267,13 +258,12 @@ def create_router():
             return await message.answer("I have no permission to delete this message.")
 
     @router.message(Command("openconnect"))
-    async def openconnect_cmd(message: types.Message, command: CommandObject, database: Database):
+    async def openconnect_cmd(message: types.Message, command: CommandObject, user: User):
         args = get_args(command)
         if len(args) == 0 or len(args) > 1 or args[0] not in ['status', 'restart', 'stop', 'start']:
             return await message.answer('invalid syntax, openconnect status|restart|stop|start')
 
-        host = database.get_host(message.from_user.id)
-        result, error = ssh_manager[host].openconnect(command.args)
+        result, error = ssh_manager[user.host].openconnect(command.args)
         if not result:
             return await message.answer(error)
         return await large_respond(message, result)
@@ -301,10 +291,9 @@ def create_router():
         return stdout_callback
 
     @router.message(Command("activate"), flags={'otp': True})
-    async def activate_cmd(message: types.Message, state: FSMContext, database: Database):
+    async def activate_cmd(message: types.Message, state: FSMContext, user: User):
         await state.set_state(SSHSessionState.session_activated)
-        host = database.get_host(message.from_user.id)
-        ssh_session = ssh_manager.interactive_session(host)
+        ssh_session = ssh_manager.interactive_session(user.host)
         await ssh_session.connect(stdout_callback_generator(message))
         await state.update_data(ssh_session=ssh_session)
         return await message.answer(f'SSH session activated! To deactivate enter /deactivate\n')
@@ -357,12 +346,14 @@ def create_router():
         )
 
     @router.message(SwitchState.switching)
-    async def switch(message: types.Message, database: Database, state: FSMContext):
+    async def switch(message: types.Message, user: User, state: FSMContext):
         await state.clear()
-        result = database.set_host(message.from_user.id, message.text)
-        if not result:
-            return await message.answer('This host does not exist!', reply_markup=ReplyKeyboardRemove())
-        return await message.answer(f'Host has been switched!', reply_markup=ReplyKeyboardRemove())
+        try:
+            user.host = message.text
+        except KeyError as e:
+            return await message.answer(str(e), reply_markup=ReplyKeyboardRemove())
+
+        return await message.answer(f'Host has been switched to {user.host}!', reply_markup=ReplyKeyboardRemove())
 
     @router.message(Command("niggachain"))
     async def chain_cmd(message: types.Message):

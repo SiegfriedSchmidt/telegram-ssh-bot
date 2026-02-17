@@ -1,10 +1,10 @@
 from aiogram import BaseMiddleware
 from aiogram.types import Message
 from typing import Callable, Dict, Any, Awaitable
-from lib.logger import main_logger
+from lib.temporal_storage import temporal_storage
 
 
-class LoggerMiddleware(BaseMiddleware):
+class UserMiddleware(BaseMiddleware):
     async def __call__(
             self,
             handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
@@ -12,11 +12,5 @@ class LoggerMiddleware(BaseMiddleware):
             data: Dict[str, Any]
     ) -> Any:
         user_data = data['event_from_user']
-
-        main_logger.info(
-            f"id: {user_data.id}, "
-            f"Username: {user_data.username}, "
-            f"message: {event.text}"
-        )
-
+        data['user'] = temporal_storage.get_user(user_data.id)
         await handler(event, data)

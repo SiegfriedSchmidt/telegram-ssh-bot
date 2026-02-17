@@ -13,7 +13,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from lib.api.meme_api import get_meme
 from lib.bot_commands import bot_commands
 from lib.config_reader import config
-from lib.database import Database
 from lib.routers import public_commands, errors, admin, group
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
@@ -67,7 +66,6 @@ async def main():
     # logging.basicConfig(level=logging.DEBUG)
     session = AiohttpSession(proxy=config.proxy_url if config.proxy_url else None)
     bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=None), session=session)
-    database = Database()
 
     async def on_shutdown():
         await notification("Bot stopped.", bot)
@@ -102,7 +100,7 @@ async def main():
     await on_start()
     await bot.delete_webhook(drop_pending_updates=True)
     await bot.set_my_commands(bot_commands)
-    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types(), database=database)
+    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
 
 def start_bot():
