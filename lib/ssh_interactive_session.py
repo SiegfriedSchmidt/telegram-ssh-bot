@@ -218,7 +218,8 @@ class SSHInteractiveSession:
         if lower in SPECIAL_KEYS:
             self.channel.send(SPECIAL_KEYS[lower])
         else:
-            self.channel.send((command.rstrip() + "\n").encode("utf-8"))
+            command = command.replace("\\r", "\r")
+            self.channel.send(command.encode("utf-8"))
         ssh_logger.info(f"Sent command to {self.name}: {command}")
 
     def close(self) -> None:

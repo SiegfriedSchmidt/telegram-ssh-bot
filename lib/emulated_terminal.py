@@ -117,6 +117,22 @@ class EmulatedTerminal:
                     fill=fg_color
                 )
 
+        # Draw cursor (if visible)
+        if not self.screen.cursor.hidden:
+            cx = self.screen.cursor.x
+            cy = self.screen.cursor.y
+
+            if 0 <= cx < self.screen.columns and 0 <= cy < self.screen.lines:
+                px = cx * CELL_WIDTH
+                py = cy * CELL_HEIGHT
+
+                # Simple block cursor
+                draw.rectangle(
+                    [px, py, px + CELL_WIDTH, py + CELL_HEIGHT],
+                    outline=(255, 255, 255),
+                    width=1
+                )
+
         bio = BytesIO()
         image.save(bio, 'PNG')
         bio.seek(0)
