@@ -402,14 +402,26 @@ def create_router():
     @router.message(Command("gamble"))
     async def gamble_cmd(message: types.Message):
         dice_msg = await message.answer_dice(emoji="🎰")
-        result = dice_msg.dice.value
+        val = dice_msg.dice.value - 1
+        # bar, plum, lemon, seven
 
-        if result == 64:
-            await message.answer(f"🎉 **JACKPOT!** You win 1000 coins! 🎉. {result}")
-        elif result >= 60:
-            await message.answer(f"🌟 **Big win!** +500 coins! 🌟. {result}")
-        elif result >= 50:
-            await message.answer(f"✨ Nice win! +100 coins! ✨. {result}")
+        result = ''
+        while val > 0:
+            result += str(val % 4)
+            val //= 4
+        result = result.ljust(3, '0')
+
+        await asyncio.sleep(1.5)
+
+        if result == '333':
+            await message.answer_animation(
+                'https://media1.tenor.com/m/Rpk3q-OLFeYAAAAd/hakari-dance-hakari.gif',
+                caption=f"🎉 **BIG JACKPOT!** X5! {result}"
+            )
+        elif len(set(result)) == 1:
+            await message.answer(f"🎉 **JACKPOT!** X2! {result}")
+        elif len(set(result)) == 2:
+            await message.answer(f"✨ Nice win! X1.2! ✨. {result}")
         else:
             await message.answer(f"😢 Better luck next time!. {result}")
 
