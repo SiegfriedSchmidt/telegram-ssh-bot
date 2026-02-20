@@ -16,6 +16,7 @@ from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.bot_commands import text_bot_commands
 from lib.downloader import downloader
+from lib.gambler import gambler
 from lib.init import data_folder_path, videos_folder_path
 from lib.keyboards.switch_host_keyboard import get_switch_host_keyboard
 from lib.logger import log_stream
@@ -401,28 +402,7 @@ def create_router():
 
     @router.message(Command("gamble"))
     async def gamble_cmd(message: types.Message):
-        dice_msg = await message.answer_dice(emoji="🎰")
-        val = dice_msg.dice.value - 1
-        # bar, plum, lemon, seven
-
-        result = ''
-        while val > 0:
-            result += str(val % 4)
-            val //= 4
-        result = result.ljust(3, '0')
-
-        await asyncio.sleep(1.5)
-
-        if result == '333':
-            await message.answer_animation(
-                'https://media1.tenor.com/m/Rpk3q-OLFeYAAAAd/hakari-dance-hakari.gif',
-                caption=f"🎉 **BIG JACKPOT!** X5! {result}"
-            )
-        elif len(set(result)) == 1:
-            await message.answer(f"🎉 **JACKPOT!** X2! {result}")
-        elif len(set(result)) == 2:
-            await message.answer(f"✨ Nice win! X1.2! ✨. {result}")
-        else:
-            await message.answer(f"😢 Better luck next time!. {result}")
+        dice_msg = await message.reply_dice(emoji="🎰")
+        await gambler.gamble(dice_msg)
 
     return router

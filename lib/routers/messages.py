@@ -2,6 +2,7 @@ from aiogram import Router, F, types
 from aiogram.types import ReactionTypeEmoji
 
 from lib.config_reader import config
+from lib.gambler import gambler
 
 router = Router()
 
@@ -16,3 +17,8 @@ async def admin_message(message: types.Message):
 @router.message(F.text.lower().contains('bipki') | F.text.lower().contains('бипки'))
 async def bipki_message(message: types.Message):
     await message.react([ReactionTypeEmoji(emoji='🔥')])
+
+
+@router.message(F.dice.emoji == "🎰")
+async def dice_message(message: types.Message):
+    await gambler.gamble(message)
