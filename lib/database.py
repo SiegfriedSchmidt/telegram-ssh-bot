@@ -1,6 +1,9 @@
+from datetime import datetime
 from decimal import Decimal
+from lib.config_reader import config
 from lib.logger import peewee_logger
 from lib.init import database_file_path
+from lib.utils.utils import used_today
 from peewee import *
 
 db = SqliteDatabase(database_file_path)
@@ -14,6 +17,7 @@ class BaseModel(Model):
 class User(BaseModel):
     username = CharField(unique=True, primary_key=True)
     bet = DecimalField(default=100, decimal_places=10)
+    daily_prize_time = DateTimeField(default=datetime.now)
 
 
 class Transaction(BaseModel):
@@ -53,3 +57,13 @@ def set_user_bet(username: str, bet: Decimal | str | float) -> None:
     user = User.get_or_create(username=username)[0]
     user.bet = Decimal(bet)
     user.save()
+
+
+def available_daily_prize(username: str) -> bool:
+    user, created = User.get_or_create(username=username)
+    if created:
+        return True
+    if not used_today(user.daily_prize_time, config.day_start_time):
+        user.daily_prize_time = datetime.now()
+        return True
+    return False

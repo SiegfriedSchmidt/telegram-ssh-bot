@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr
     otp_secret: SecretStr
     proxy_url: str = ''
+    day_start_time: str = '11:00'
 
     @classmethod
     def settings_customise_sources(

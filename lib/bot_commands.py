@@ -23,6 +23,7 @@ bot_commands = [
     BotCommand(command='gamble', description='{bet: optional} some gambling'),
     BotCommand(command='balance', description='show gambling balance'),
     BotCommand(command='transfer', description='{amount: required, username: optional} - make transfer'),
+    BotCommand(command='daily_prize', description='obtain daily prize'),
     BotCommand(command='access', description='{otp_code:required} get privileged access'),
     BotCommand(command='activate', description='{terminal_type:optional} activate ssh session in text|image terminal'),
     BotCommand(command='deactivate', description='deactivate ssh session'),

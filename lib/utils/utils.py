@@ -1,5 +1,6 @@
 import asyncio
 import os
+from datetime import datetime, time, timedelta
 from io import BytesIO
 from pathlib import Path
 from typing import List, Iterable, Tuple
@@ -47,6 +48,28 @@ def remove_file(path: Path) -> int:
 
 def get_args(command: CommandObject):
     return command.args.split() if command.args else []
+
+
+def used_today(last_used: datetime, day_start_time: str) -> bool:
+    hour, minute = map(int, day_start_time.split(":"))
+    start_time = time(hour, minute)
+
+    now = datetime.now()
+
+    # Construct today's start time
+    today_start = datetime.combine(now.date(), start_time)
+
+    # Determine actual logical day start
+    if now < today_start:
+        # Day started yesterday
+        day_start = today_start - timedelta(days=1)
+    else:
+        # Day started today
+        day_start = today_start
+
+    day_end = day_start + timedelta(days=1)
+
+    return day_start <= last_used < day_end
 
 
 async def run_in_thread(func, *args):

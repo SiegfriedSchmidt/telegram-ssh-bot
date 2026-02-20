@@ -10,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove
 from aiogram.utils.chat_action import ChatActionMiddleware
 
+from lib import database
 from lib.ledger import ledger
 from lib.api.gemini_api import gemini_api
 from lib.api.geoip_api import geoip
@@ -438,6 +439,11 @@ def create_router():
         ledger.record_transaction(from_user, to_user, amount, "transfer")
         return await message.answer(f"Successfully transferred {amount} to {to_user}!")
 
-
+    @router.message(Command("daily_prize"))
+    async def daily_prize_cmd(message: types.Message):
+        if database.available_daily_prize(message.from_user.username):
+            return await gambler.daily_prize(message)
+        else:
+            return await message.answer('Your daily prize already obtained! Wait for the next day!')
 
     return router

@@ -43,7 +43,8 @@ async def on_day_start(bot: Bot):
     # joke = await get_joke('Dark')
     # message = f'Daily joke:\n\n{joke}'
     # await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
-
+    await bot.send_message(config.group_id, "<b>Daily Prize Updated!</b>. Do /daily_prize to open!", parse_mode="html")
+    await asyncio.sleep(5)
     try:
         url, caption = await get_meme()
         try:
@@ -83,7 +84,8 @@ async def main():
 
     # scheduler
     scheduler = AsyncIOScheduler()
-    trigger = CronTrigger(hour=11, minute=0)
+    hour, minute = map(int, config.day_start_time.split(":"))
+    trigger = CronTrigger(hour=hour, minute=minute)
     scheduler.add_job(on_day_start, trigger, args=(bot,))
     scheduler.start()
 
