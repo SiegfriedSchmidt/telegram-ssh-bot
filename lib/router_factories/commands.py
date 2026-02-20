@@ -10,12 +10,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove
 from aiogram.utils.chat_action import ChatActionMiddleware
 
+from lib.ledger import ledger
 from lib.api.gemini_api import gemini_api
 from lib.api.geoip_api import geoip
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.bot_commands import text_bot_commands
-from lib.database import database
 from lib.downloader import downloader
 from lib.gambler import gambler
 from lib.init import data_folder_path, videos_folder_path
@@ -406,10 +406,10 @@ def create_router():
         args = get_args(command)
         bet = 0
         if len(args) == 1:
-            if args[0].isdigit():
-                bet = float(args[0])
+            if args[0].isdecimal():
+                bet = args[0]
             else:
-                return await message.answer('bet should be digit!')
+                return await message.answer('bet should be decimal!')
 
         if len(args) > 1:
             return await message.answer('too many args!')
@@ -418,7 +418,26 @@ def create_router():
 
     @router.message(Command("balance"))
     async def balance_cmd(message: types.Message):
-        user = database.get_user(message.from_user.username)
-        return await message.answer(f"Your balance is {user.balance}.")
+        return await message.answer(f"Your balance is {ledger.get_user_balance(message.from_user.username)}.")
+
+    @router.message(Command("transfer"))
+    async def transfer_cmd(message: types.Message, command: CommandObject):
+        args = get_args(command)
+        if message.reply_to_message:
+            to_user = message.reply_to_message.from_user.username
+            if len(args) == 1 and args[0].isdecimal():
+                amount = args[0]
+            else:
+                return await message.answer('Correct amount is required!')
+        elif len(args) == 2 and args[0].isdecimal():
+            amount = args[0]
+            to_user = args[1]
+        else:
+            return await message.answer('Invalid syntax!')
+        from_user = message.from_user.username
+        ledger.record_transaction(from_user, to_user, amount, "transfer")
+        return await message.answer(f"Successfully transferred {amount} to {to_user}!")
+
+
 
     return router

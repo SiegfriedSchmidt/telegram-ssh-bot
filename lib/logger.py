@@ -93,6 +93,8 @@ log_stream = LogStream()
 
 main_logger = create_logger('LOGGER', 'LOGGER', log_stream, Fore.MAGENTA)
 ssh_logger = create_logger('SSH', 'SSH', log_stream, Fore.CYAN)
+peewee_logger = create_logger('peewee', 'SQL', log_stream, Fore.LIGHTBLUE_EX)
+ledger_logger = create_logger('ledger', 'LEDGER', log_stream, Fore.LIGHTCYAN_EX)
 
 if __name__ == '__main__':
     pass

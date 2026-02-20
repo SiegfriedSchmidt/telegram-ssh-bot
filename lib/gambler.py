@@ -1,13 +1,14 @@
 import asyncio
-from aiogram import types
+from decimal import Decimal
+from typing import Tuple
 
-from lib.database import Database, database
+from aiogram import types
+from lib.ledger import ledger
+from lib import database
+from lib.models import GainType
 
 
 class Gambler:
-    def __init__(self, db: Database):
-        self.db = db
-
     @staticmethod
     def convert_dice_val(dice_val: int):
         # bar, plum, lemon, seven
@@ -19,22 +20,40 @@ class Gambler:
             val //= 4
         return result.ljust(3, '0')
 
-    async def gamble(self, message: types.Message, bet: float = 0):
+    def determine_gain(self, dice_val: int, bet: Decimal) -> Tuple[GainType, float]:
+        bet = float(bet)
+        result = self.convert_dice_val(dice_val)
+        unique = len(set(result))
+        if result == '333':
+            gain_type = GainType.big_jackpot
+            gain = bet * 5
+        elif unique == 1:
+            gain_type = GainType.jackpot
+            gain = bet * 2
+        elif unique == 2:
+            gain_type = GainType.nice_win
+            gain = bet * 1.2
+        else:
+            gain_type = GainType.loss
+            gain = 0
+        return gain_type, gain
+
+    async def gamble(self, message: types.Message, bet: Decimal | str | float = 0):
+        bet = Decimal(bet)
         username = message.from_user.username
-        user = self.db.get_user(username)
-        current_balance = float(user.balance)
 
         if bet < 0:
             return await message.reply(f"Bet cannot be negative!")
 
         if bet == 0:
-            bet = float(user.bet)
+            bet = database.get_user_bet(username)
         else:
-            self.db.set_user_bet(user, bet)
+            database.set_user_bet(username, bet)
 
-        if current_balance < bet:
-            return await message.reply(f"You don't have enough money: {current_balance}!")
-        current_balance -= bet
+        try:
+            ledger.record_deposit(username, bet, "bet")
+        except ValueError:
+            return await message.reply(f"You don't have enough money: {ledger.get_user_balance(username)} < {bet}!")
 
         try:
             if message.dice.value:
@@ -44,25 +63,26 @@ class Gambler:
         except AttributeError:
             dice_msg = await message.reply_dice(emoji="🎰")
 
+        gain_type, gain = self.determine_gain(dice_msg.dice.value, bet)
+        if gain:
+            ledger.record_gain(username, gain, gain_type.value)
+        balance_str = f'{username}: {ledger.get_user_balance(username)} coins.'
+
         await asyncio.sleep(1.5)
-        result = self.convert_dice_val(dice_msg.dice.value)
-        unique = len(set(result))
-        if result == '333':
-            current_balance += 5 * bet
-            await dice_msg.reply_animation(
-                'https://media1.tenor.com/m/Rpk3q-OLFeYAAAAd/hakari-dance-hakari.gif',
-                caption=f"🎉 **BIG JACKPOT!** X5! {username}: {current_balance} coins."
-            )
-        elif unique == 1:
-            current_balance += 2 * bet
-            await dice_msg.reply(f"🎉 **JACKPOT!** X2! {username}: {current_balance} coins.")
-        elif unique == 2:
-            current_balance += 1.2 * bet
-            await dice_msg.reply(f"✨ Nice win! X1.2! ✨ {username}: {current_balance} coins.")
-        else:
-            await dice_msg.reply(f"😢 Better luck next time! {username}: {current_balance} coins.")
+        match gain_type.value:
+            case GainType.big_jackpot:
+                await dice_msg.reply_animation(
+                    'https://media1.tenor.com/m/Rpk3q-OLFeYAAAAd/hakari-dance-hakari.gif',
+                    caption=f"🎉 **BIG JACKPOT!** X5! {balance_str}"
+                )
+            case GainType.jackpot:
+                await dice_msg.reply(f"🎉 **JACKPOT!** X2! {balance_str}")
+            case GainType.nice_win:
+                await dice_msg.reply(f"✨ Nice win! X1.2! ✨ {balance_str}")
+            case GainType.loss:
+                await dice_msg.reply(f"😢 Better luck next time, loser! {balance_str}")
 
-        return self.db.set_user_balance(user, current_balance)
+        return None
 
 
-gambler = Gambler(database)
+gambler = Gambler()

@@ -31,3 +31,10 @@ class UserModel(BaseModel):
 class TerminalType(str, BaseEnum):
     text = 'text'
     image = 'image'
+
+
+class GainType(str, BaseEnum):
+    big_jackpot = 'big_jackpot'
+    jackpot = 'jackpot'
+    nice_win = 'nice_win'
+    loss = 'loss'

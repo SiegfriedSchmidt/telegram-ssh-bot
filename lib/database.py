@@ -1,50 +1,55 @@
+from decimal import Decimal
+from lib.logger import peewee_logger
 from lib.init import database_file_path
 from peewee import *
 
-peewee_db = SqliteDatabase(database_file_path)
+db = SqliteDatabase(database_file_path)
 
 
 class BaseModel(Model):
     class Meta:
-        database = peewee_db
+        database = db
 
 
 class User(BaseModel):
-    username = CharField(unique=True)
-    balance = DecimalField(default=0)
-    bet = DecimalField(default=100)
+    username = CharField(unique=True, primary_key=True)
+    bet = DecimalField(default=100, decimal_places=10)
 
 
-peewee_db.connect()
-# peewee_db.drop_tables([User])
-peewee_db.create_tables([User])
+class Transaction(BaseModel):
+    height = IntegerField(unique=True, primary_key=True)  # 0 = genesis, 1, 2, ...
+    timestamp = DateTimeField()
+    from_user = ForeignKeyField(User, null=True, backref='sent')
+    to_user = ForeignKeyField(User, null=True, backref='received')
+    amount = DecimalField(decimal_places=8, constraints=[Check('amount > 0')])
+    description = TextField(null=True)
+    prev_hash = CharField(max_length=64)
+    tx_hash = CharField(max_length=64, unique=True)
+
+    def __str__(self):
+        return f'{self.height} - {self.timestamp}'
+
+    class Meta:
+        indexes = (
+            (('height',), True),
+            (('from_user', 'to_user'), False),
+        )
 
 
-class Database:
-    @staticmethod
-    def create_user(username: str, balance=0):
-        user = User(username=username, balance=balance)
-        user.save()
-        return user
+db.connect()
+# db.drop_tables([User, Transaction])
+db.create_tables([User, Transaction])
 
-    def get_user(self, username: str) -> User:
-        try:
-            return User.get(User.username == username)
-        except Exception:
-            return self.create_user(username)
-
-    @staticmethod
-    def set_user_balance(user: User, balance: float) -> None:
-        user.update(balance=balance).execute()
-
-    @staticmethod
-    def set_user_bet(user: User, bet: float) -> None:
-        user.update(bet=bet).execute()
+peewee_logger.info("Connected to database.")
+peewee_logger.disabled = True
 
 
-database = Database()
+def get_user_bet(username: str) -> Decimal:
+    user = User.get_or_create(username=username)[0]
+    return user.bet
 
-if __name__ == '__main__':
-    user = database.get_user('123')
-    database.set_user_balance(user, 600)
-    print(database.get_user(str(user.username)).balance)
+
+def set_user_bet(username: str, bet: Decimal | str | float) -> None:
+    user = User.get_or_create(username=username)[0]
+    user.bet = Decimal(bet)
+    user.save()
