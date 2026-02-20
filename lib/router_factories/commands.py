@@ -15,6 +15,7 @@ from lib.api.geoip_api import geoip
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.bot_commands import text_bot_commands
+from lib.database import database
 from lib.downloader import downloader
 from lib.gambler import gambler
 from lib.init import data_folder_path, videos_folder_path
@@ -401,8 +402,23 @@ def create_router():
         return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')
 
     @router.message(Command("gamble"))
-    async def gamble_cmd(message: types.Message):
-        dice_msg = await message.reply_dice(emoji="🎰")
-        await gambler.gamble(dice_msg)
+    async def gamble_cmd(message: types.Message, command: CommandObject):
+        args = get_args(command)
+        bet = 0
+        if len(args) == 1:
+            if args[0].isdigit():
+                bet = float(args[0])
+            else:
+                return await message.answer('bet should be digit!')
+
+        if len(args) > 1:
+            return await message.answer('too many args!')
+
+        return await gambler.gamble(message, bet)
+
+    @router.message(Command("balance"))
+    async def balance_cmd(message: types.Message):
+        user = database.get_user(message.from_user.username)
+        return await message.answer(f"Your balance is {user.balance}.")
 
     return router

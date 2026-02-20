@@ -2,9 +2,11 @@ from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from lib.config_reader import config
+from lib.database import database
 from lib.router_factories import commands, ssh_session
 from lib.states.confirmation_state import ConfirmationState
 from lib.storage import storage
+from lib.utils.utils import get_args
 
 router = Router()
 router.message.filter(F.chat.type.in_(["private"]), F.chat.id.in_(config.admin_ids))
@@ -36,3 +38,15 @@ async def send(message: types.Message, state: FSMContext):
     else:
         await message.answer('abort')
     return await state.clear()
+
+
+@router.message(Command("set_balance"))
+async def set_balance_cmd(message: types.Message, command: CommandObject):
+    args = get_args(command)
+    if len(args) != 2 or not args[1].isdigit():
+        return await message.answer('Sorry, you need to specify a username and balance amount.')
+
+    username = args[0]
+    balance = float(args[1])
+    database.set_user_balance(database.get_user(username), balance)
+    return await message.answer(f'{username} balance is {balance}.')
