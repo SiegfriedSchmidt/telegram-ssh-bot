@@ -446,4 +446,13 @@ def create_router():
         else:
             return await message.answer('Your daily prize already obtained! Wait for the next day!')
 
+    @router.message(Command("ledger"))
+    async def ledger_cmd(message: types.Message):
+        txs = ledger.get_recent_transactions(limit=100)
+        txs_count = ledger.get_transactions_count()
+        text_txs = '\n'.join([
+            f'{tx.height}. {tx.from_user} -> {tx.to_user}, {tx.amount}, {tx.description}' for tx in txs
+        ])
+        return await message.answer(f"<b>Ledger ({txs_count} transactions):</b>\n{text_txs}", parse_mode='html')
+
     return router

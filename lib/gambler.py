@@ -59,6 +59,7 @@ class Gambler:
 
     @staticmethod
     def determine_gain_amount(gain_type: GainType, bet: Decimal) -> float:
+        bet = float(bet)
         match gain_type.value:
             case GainType.big_jackpot:
                 return bet * 5

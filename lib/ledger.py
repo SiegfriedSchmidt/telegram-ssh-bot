@@ -16,7 +16,7 @@ GENESIS = {
     "to_user": GENESIS_USER,
     "amount": Decimal(1e12),
     "prev_hash": "0" * 64,
-    "description": "Genesis block — bot started"
+    "description": "GENESIS BLOCK"
 }
 
 
@@ -30,10 +30,9 @@ class Ledger:
         self.__balances: dict[str, Decimal] = dict()
         self.load_and_verify_chain()
 
-    @staticmethod
-    def init_genesis():
+    def init_genesis(self):
         genesis_user = User.get_or_create(username=GENESIS_USER)[0]
-        if Transaction.select().count() == 0:
+        if self.get_transactions_count() == 0:
             genesis_data = GENESIS.copy()
             genesis_data["timestamp"] = datetime.now().isoformat()
             genesis_hash = compute_hash(genesis_data)
@@ -156,6 +155,10 @@ class Ledger:
         )
         users = User.select()
         return prefetch(transactions, users)
+
+    @staticmethod
+    def get_transactions_count() -> int:
+        return Transaction.select().count()
 
     @staticmethod
     def __get_all_transactions() -> list[Transaction]:
