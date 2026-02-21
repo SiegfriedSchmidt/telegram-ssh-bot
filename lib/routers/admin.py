@@ -40,13 +40,11 @@ async def send(message: types.Message, state: FSMContext):
     return await state.clear()
 
 
-@router.message(Command("add_coins"))
-async def add_coins_cmd(message: types.Message, command: CommandObject):
+@router.message(Command("tx"))
+async def tx_cmd(message: types.Message, command: CommandObject):
     args = get_args(command)
-    if len(args) != 2 or not args[1].isdecimal():
-        return await message.answer('Sorry, you need to specify a username and balance amount.')
+    if len(args) != 4 or not args[2].isdecimal():
+        return await message.answer('Invalid amount or type of arguments.')
 
-    username = args[0]
-    balance = args[1]
-    ledger.record_gain(username, balance, "Admin mercy!")
-    return await message.answer(f'{username} balance is {ledger.get_user_balance(username)}.')
+    ledger.record_transaction(*args)
+    return await message.answer(f'Transaction: {", ".join(args)} - recorded!')

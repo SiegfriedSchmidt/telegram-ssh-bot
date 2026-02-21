@@ -65,5 +65,6 @@ def available_daily_prize(username: str) -> bool:
         return True
     if not used_today(user.daily_prize_time, config.day_start_time):
         user.daily_prize_time = datetime.now()
+        user.save()
         return True
     return False
