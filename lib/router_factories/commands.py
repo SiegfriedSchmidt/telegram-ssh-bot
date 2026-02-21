@@ -455,4 +455,12 @@ def create_router():
         ])
         return await message.answer(f"<b>Ledger ({txs_count} transactions):</b>\n{text_txs}", parse_mode='html')
 
+    @router.message(Command("leaderboard"))
+    async def leaderboard_cmd(message: types.Message):
+        balances = ledger.get_all_balances()[1:]
+        text = '\n'.join([
+            f'{idx + 1}. {username}: {amount}' for idx, (username, amount) in enumerate(balances)
+        ])
+        return await message.answer(f"<b>Leaderboard:</b>\n{text}", parse_mode='html')
+
     return router

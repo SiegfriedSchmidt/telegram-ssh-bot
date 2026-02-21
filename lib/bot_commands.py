@@ -25,6 +25,7 @@ bot_commands = [
     BotCommand(command='transfer', description='{amount: required, username: optional} - make transfer'),
     BotCommand(command='daily_prize', description='obtain daily prize'),
     BotCommand(command='ledger', description='show blockchain transactions'),
+    BotCommand(command='leaderboard', description='show leaderboard'),
     BotCommand(command='access', description='{otp_code:required} get privileged access'),
     BotCommand(command='activate', description='{terminal_type:optional} activate ssh session in text|image terminal'),
     BotCommand(command='deactivate', description='deactivate ssh session'),

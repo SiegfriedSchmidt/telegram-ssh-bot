@@ -135,6 +135,9 @@ class Ledger:
     def get_user_balance(self, username: str) -> Decimal:
         return self.__balances.get(username, 0)
 
+    def get_all_balances(self):
+        return sorted(list(self.__balances.items()), key=lambda item: item[1], reverse=True)
+
     @staticmethod
     def get_user_transactions(username: str, limit: Optional[int] = None) -> list[Transaction]:
         return list(
