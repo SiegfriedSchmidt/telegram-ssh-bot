@@ -17,7 +17,7 @@ class BaseModel(Model):
 class User(BaseModel):
     username = CharField(unique=True, primary_key=True)
     bet = DecimalField(default=100, decimal_places=10)
-    daily_prize_time = DateTimeField(default=datetime.now)
+    daily_prize_time = DateTimeField(default=datetime(1980, 1, 1))
 
 
 class Transaction(BaseModel):
@@ -60,9 +60,7 @@ def set_user_bet(username: str, bet: Decimal | str | float) -> None:
 
 
 def available_daily_prize(username: str) -> bool:
-    user, created = User.get_or_create(username=username)
-    if created:
-        return True
+    user = User.get_or_create(username=username)[0]
     if not used_today(user.daily_prize_time, config.day_start_time):
         user.daily_prize_time = datetime.now()
         user.save()
