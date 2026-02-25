@@ -13,12 +13,14 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from lib.api.meme_api import get_meme
 from lib.bot_commands import bot_commands
 from lib.config_reader import config
+from lib.init import galton_folder_path
 from lib.routers import public_commands, errors, admin, group
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
 from lib.ssh_manager import ssh_manager
 from lib.storage import storage
+from lib.utils.utils import clear_dir_contents
 
 nest_asyncio.apply()
 
@@ -43,6 +45,7 @@ async def on_day_start(bot: Bot):
     # joke = await get_joke('Dark')
     # message = f'Daily joke:\n\n{joke}'
     # await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
+    clear_dir_contents(galton_folder_path)
     await bot.send_message(config.group_id, "<b>Daily Prize Updated!</b>. Do /daily_prize to open!", parse_mode="html")
     await asyncio.sleep(5)
     try:

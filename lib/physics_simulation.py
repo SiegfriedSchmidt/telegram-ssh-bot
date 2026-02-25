@@ -1,4 +1,5 @@
 from matplotlib import animation
+from lib.init import galton_folder_path
 import numpy as np
 import matplotlib.pyplot as plt
 import pymunk
@@ -6,7 +7,7 @@ import math
 
 
 class PhysicsSimulation:
-    def __init__(self):
+    def __init__(self, balls: int = None, seed: int = None):
         self.space_gravity = 0, -9.81
         self.space_damping = 0.995
         self.space_threaded = False
@@ -24,12 +25,10 @@ class PhysicsSimulation:
         self.v_rand = 0
         self.pos_rand = 0
         self.rows = 16
-        self.balls_count = 1
+        self.balls_count = 1 if balls is None else balls
         self.lowest_x, self.lowest_y, self.columns = 0, 0, 0
-
-        seed = np.random.randint(2 ** 63 - 1)
-        print(f'seed: {seed}')
-        self.random = np.random.default_rng(seed)
+        self.seed = np.random.randint(2 ** 63 - 1) if seed is None else seed
+        self.random = np.random.default_rng(self.seed)
 
     def setup_space(self) -> tuple[pymunk.Space, list[pymunk.Body]]:
         space = pymunk.Space(threaded=self.space_threaded)
@@ -57,7 +56,7 @@ class PhysicsSimulation:
 
         static_lines = [
             # Bottom floor
-            pymunk.Segment(static_body, (0, 0), (self.width, 0), 0.01),
+            # pymunk.Segment(static_body, (0, 0), (self.width, 0), 0.01),
             # Right wall
             # pymunk.Segment(static_body, (self.width - gap, gap), (self.width - gap, self.height * 100), 0.01),
             # Left wall
@@ -85,7 +84,7 @@ class PhysicsSimulation:
                 shape.collision_type = STATIC_CATEGORY
                 static_circles.append(shape)
                 if row == self.rows - 1:
-                    static_lines.append(pymunk.Segment(static_body, (x, y), (x, 0), self.r))
+                    static_lines.append(pymunk.Segment(static_body, (x, y - self.r), (x, 0), self.r))
                     if col == 0:
                         self.columns = row2
                         self.lowest_x = x
@@ -150,14 +149,14 @@ class PhysicsSimulation:
             cur_part = t / self.T
             if cur_part - last_part >= 0.02:
                 last_part = cur_part
-                print(f'Simulation: {cur_part:.1%}, resolved: {resolved_count}')
+                # print(f'Simulation: {cur_part:.1%}, resolved: {resolved_count}')
             # log ball positions
             positions.append([np.array(b.position) for b in balls])
             # Step the simulation
             space.step(self.dt)
             for i, b in enumerate(balls):
                 if b in space.bodies:
-                    if not ball_category[i] and b.position[1] + self.R < self.lowest_y:
+                    if not ball_category[i] and b.position[1] <= self.R:
                         x_with_offset = b.position[0] - self.lowest_x
                         category = int(x_with_offset / self.gap) + 2
                         if x_with_offset < 0:
@@ -187,11 +186,7 @@ class PhysicsSimulation:
         Var = E2 - E ** 2
         return E, Var
 
-    def render(self):
-        # Forward simulation
-        space, balls = self.setup_space()
-        positions, ball_category, categories_count = self.simulate(space, balls)
-
+    def compute_probabilities(self, categories_count: list[int], manual_coefficients: np.ndarray):
         categories_count = np.array(categories_count)
         resolved_count = np.sum(categories_count)
         probabilities = categories_count / resolved_count
@@ -211,14 +206,20 @@ class PhysicsSimulation:
         coefficients = 1 / bin_probabilities / bin_probabilities.size
         print('IDEAL coefficients:', list(map(float, coefficients)))
 
-        coefficients = np.array([
-            500, 450, 30, 9, 3, 1, 0.5, 0.2, 0, 0.2, 0.5, 1, 3, 9, 30, 450, 500
-        ])
-        print(coefficients * bin_probabilities)
-        coef_E, coef_Var = self.calculate_dist_params(bin_probabilities, coefficients)
+        print(manual_coefficients * bin_probabilities)
+        coef_E, coef_Var = self.calculate_dist_params(bin_probabilities, manual_coefficients)
         bin_probabilities = list(map(float, bin_probabilities))
-        coefficients = list(map(float, coefficients))
-        print(f"{coefficients=}\n{bin_probabilities=}\n{coef_E=}\n{coef_Var=}\n{bin_E=}\n{bin_Var=}")
+        manual_coefficients = list(map(float, manual_coefficients))
+        print(f"{manual_coefficients=}\n{bin_probabilities=}\n{coef_E=}\n{coef_Var=}\n{bin_E=}\n{bin_Var=}")
+
+    def render(self) -> tuple[float, str, float]:
+        # Forward simulation
+        space, balls = self.setup_space()
+        positions, ball_category, categories_count = self.simulate(space, balls)
+
+        manual_coefficients = np.array([500, 450, 30, 9, 3, 1, 0.5, 0.2, 0, 0.2, 0.5, 1, 3, 9, 30, 450, 500])
+        assert len(categories_count) == manual_coefficients.size, "Inconsistent number of categories"
+        # self.compute_probabilities(categories_count, manual_coefficients)
 
         # Prepare the figure and axes
         fig, ax = plt.subplots(figsize=(self.width, self.height), dpi=self.dpi)
@@ -233,38 +234,43 @@ class PhysicsSimulation:
             plt.Circle(
                 xy=(0, 0),
                 radius=b.radius,
-                facecolor=cmap((ball_category[i] - 1) / (len(categories_count) - 1)) if ball_category[
-                                                                                            i] != 0 else "black"
+                facecolor=cmap((ball_category[i] - 1) / (len(categories_count) - 1)) if ball_category[i] != 0 else "b"
             ) for i, b in enumerate(balls)
         ]
         [ax.add_patch(c) for c in circles]
         ax.set_facecolor((176 / 255, 196 / 255, 177 / 255))
 
-        # Draw the walls as black lines
+        categories_middle = (len(categories_count) - 3) / 2
+        cmap = plt.get_cmap("autumn")
         for s in space.static_body.shapes:
             if isinstance(s, pymunk.Circle):
                 ax.add_patch(plt.Circle((s.offset.x, s.offset.y), radius=s.radius, facecolor='black'))
             elif isinstance(s, pymunk.Segment):
-                ax.plot([s.a.x, s.b.x], [s.a.y, s.b.y], linewidth=s.radius * self.dpi, color="k")
+                color = cmap(abs(s.a.x - self.lowest_x - categories_middle * self.gap) / self.gap / categories_middle)
+                ax.plot([s.a.x, s.b.x], [s.a.y, s.b.y], linewidth=s.radius * self.dpi, color=color)
 
-        for i, coef in enumerate(coefficients[1:-1]):
+        for i, coef in enumerate(manual_coefficients[1:-1]):
+            color = cmap(abs(categories_middle - i) / categories_middle)
             ax.text(
                 self.lowest_x + self.gap * i + self.gap * 0.5, self.lowest_y - 0.5, f'{coef:g}',
                 fontsize=21,
-                color='green',
+                color=color,
                 fontweight='bold',
                 horizontalalignment='center',
                 verticalalignment='center'
             )
 
-        # Animation function. This is called for each frame, passing an entry in positions
         cur_frame = [-3]
-        frames_count = int(len(positions) / self.subsampling)
+        interval = self.dt * self.subsampling
+        frames = positions[::self.subsampling]
+        frames_count = len(frames)
+        fps = int(1 / (self.dt * self.subsampling))
 
+        # Animation function. This is called for each frame, passing an entry in positions
         def drawframe(p: list[tuple[float, float]]):
-            cur_frame[0] += 1
-            if cur_frame[0] % 10 == 0:
-                print(f'Frame: {cur_frame[0]}/{frames_count}')
+            # cur_frame[0] += 1
+            # if cur_frame[0] % 10 == 0 or cur_frame[0] >= frames_count:
+            #     print(f'Frame: {cur_frame[0]}/{frames_count}')
             for i, c in enumerate(circles):
                 c.set_center(p[i])
             return circles
@@ -272,25 +278,20 @@ class PhysicsSimulation:
         anim = animation.FuncAnimation(
             fig,
             drawframe,
-            frames=positions[::self.subsampling],
-            interval=self.dt * self.subsampling * 1000,
-            blit=True,
+            frames=frames,
+            interval=interval * 1000,
+            blit=True
         )
 
         # Set to True to save the animation to file
-        print(f"Rendering {len(positions[::self.subsampling])} frames at {1 / (self.dt * self.subsampling)} fps")
-        save = True
-        if save:
-            FFwriter = animation.FFMpegWriter(fps=int(1 / (self.dt * self.subsampling)))
-            anim.save(
-                "../data/video.mp4",
-                writer=FFwriter,
-            )
+        # print(f"Rendering {frames_count} frames at {fps} fps")
+        filename = galton_folder_path / f"{self.seed}.mp4"
+        FFwriter = animation.FFMpegWriter(fps=fps)
+        anim.save(filename, writer=FFwriter)
         plt.close(fig)
-        return coefficients[ball_category[0] - 1]
+        return float(manual_coefficients[ball_category[0] - 1]), filename, frames_count * interval
 
-
-physics_simulation = PhysicsSimulation()
 
 if __name__ == '__main__':
+    physics_simulation = PhysicsSimulation()
     print(physics_simulation.render())

@@ -417,6 +417,21 @@ def create_router():
 
         return await gambler.gamble(message, bet)
 
+    @router.message(Command("galton"))
+    async def galton_cmd(message: types.Message, command: CommandObject):
+        args = get_args(command)
+        bet = 0
+        if len(args) == 1:
+            if args[0].isdecimal():
+                bet = args[0]
+            else:
+                return await message.answer('bet should be decimal!')
+
+        if len(args) > 1:
+            return await message.answer('too many args!')
+
+        return await gambler.galton(message, bet)
+
     @router.message(Command("balance"))
     async def balance_cmd(message: types.Message):
         return await message.answer(f"Your balance is {ledger.get_user_balance(message.from_user.username)}.")

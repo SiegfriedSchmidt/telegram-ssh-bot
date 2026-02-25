@@ -21,6 +21,7 @@ bot_commands = [
     BotCommand(command='openconnect', description='{status|restart|stop|start:required} manage openconnect service'),
     BotCommand(command='del', description='delete replied message'),
     BotCommand(command='gamble', description='{bet: optional} some gambling'),
+    BotCommand(command='galton', description='{bet: optional} some galton board gambling'),
     BotCommand(command='balance', description='show gambling balance'),
     BotCommand(command='transfer', description='{amount: required, username: optional} - make transfer'),
     BotCommand(command='daily_prize', description='obtain daily prize'),
