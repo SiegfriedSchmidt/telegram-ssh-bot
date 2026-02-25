@@ -5,7 +5,6 @@ from io import BytesIO
 from pathlib import Path
 from typing import List, Iterable, Tuple
 from aiogram import types
-
 from aiogram.filters import CommandObject
 
 

@@ -3,14 +3,23 @@ from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from lib.config_reader import config
 from lib.ledger import ledger
-from lib.router_factories import commands, ssh_session
+from lib.router_factories import admin_commands, ssh_session, general_commands
 from lib.states.confirmation_state import ConfirmationState
 from lib.storage import storage
 from lib.utils.utils import get_args
 
 router = Router()
-router.message.filter(F.chat.type.in_(["private"]), F.chat.id.in_(config.admin_ids))
-router.include_routers(commands.create_router(), ssh_session.create_router())
+router.message.filter(
+    F.chat.type.in_(["private"]),
+    F.chat.id.in_(config.admin_ids),
+    F.from_user.id.in_(config.admin_ids)
+)
+
+router.include_routers(
+    admin_commands.create_router(),
+    general_commands.create_router(),
+    ssh_session.create_router()
+)
 
 
 @router.message(Command("notifications"))
@@ -34,7 +43,7 @@ async def send(message: types.Message, state: FSMContext):
             return await message.answer('Sorry, message is empty for some reason.')
 
         await message.answer('sending message...')
-        await message.bot.send_message(config.group_id, state_message)
+        await message.bot.send_message(config.main_group_id, state_message)
     else:
         await message.answer('abort')
     return await state.clear()

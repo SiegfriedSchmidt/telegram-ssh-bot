@@ -11,10 +11,10 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
-from lib.bot_commands import bot_commands
+from lib.bot_commands import set_bot_commands
 from lib.config_reader import config
 from lib.init import galton_folder_path
-from lib.routers import public_commands, errors, admin, group
+from lib.routers import public_commands, errors, group_admin, group_general, private_admin
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
@@ -38,7 +38,7 @@ class DispatcherOnShutdown(Dispatcher):
 async def notification(message: str, bot: Bot):
     main_logger.info(message)
     if storage.notification_enabled:
-        await bot.send_message(config.group_id, message, parse_mode=None)
+        await bot.send_message(config.main_group_id, message, parse_mode=None)
 
 
 async def on_day_start(bot: Bot):
@@ -46,22 +46,29 @@ async def on_day_start(bot: Bot):
     # message = f'Daily joke:\n\n{joke}'
     # await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
     clear_dir_contents(galton_folder_path)
-    await bot.send_message(config.group_id, "<b>Daily Prize Updated!</b>. Do /daily_prize to open!", parse_mode="html")
-    await asyncio.sleep(5)
+
+    url, caption = None, None
     try:
         url, caption = await get_meme()
-        try:
-            if url.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                await bot.send_photo(config.group_id, url, caption=caption)
-            elif url.endswith('.gif'):
-                await bot.send_animation(config.group_id, url, caption=caption)
-            elif url.endswith(('.mp4', '.gifv', '.webm')):
-                await bot.send_video(config.group_id, url, caption=caption)
-        except TelegramBadRequest:
-            await asyncio.sleep(1)
-            await bot.send_message(config.group_id, f"{url}\n\n{caption}", disable_web_page_preview=False)
     except Exception as e:
         main_logger.exception(e)
+
+    for group_id in config.group_ids:
+        await bot.send_message(group_id, "<b>Daily Prize Updated!</b>. Do /daily_prize to open!", parse_mode="html")
+        await asyncio.sleep(5)
+        if url is None or caption is None:
+            continue
+
+        try:
+            if url.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                await bot.send_photo(group_id, url, caption=caption)
+            elif url.endswith('.gif'):
+                await bot.send_animation(group_id, url, caption=caption)
+            elif url.endswith(('.mp4', '.gifv', '.webm')):
+                await bot.send_video(group_id, url, caption=caption)
+        except TelegramBadRequest:
+            await asyncio.sleep(1)
+            await bot.send_message(group_id, f"{url}\n\n{caption}", disable_web_page_preview=False)
 
     main_logger.info("Day start function executed.")
 
@@ -100,11 +107,17 @@ async def main():
     dp.message.middleware(AccessMiddleware())
 
     # routers
-    dp.include_routers(errors.router, public_commands.router, admin.router, group.router)
+    dp.include_routers(
+        errors.router,
+        public_commands.router,
+        group_general.router,
+        group_admin.router,
+        private_admin.router
+    )
 
     await on_start()
     await bot.delete_webhook(drop_pending_updates=True)
-    await bot.set_my_commands(bot_commands)
+    await set_bot_commands(bot)
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
 

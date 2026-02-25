@@ -102,12 +102,12 @@ class Gambler:
         return f'{username}: {ledger.get_user_balance(username)} coins.'
 
     async def gamble(self, message: types.Message, bet: Decimal | str | float = 0):
-        username = message.from_user.username
-        dice_msg = await self.get_dice_msg(message)
         bet = await self.process_bet(message, bet)
         if bet is None:
             return None
 
+        username = message.from_user.username
+        dice_msg = await self.get_dice_msg(message)
         gain_type = self.determine_gain_type(dice_msg.dice.value)
         gain = gamble_multipliers[gain_type] * bet
         if gain:
@@ -116,17 +116,20 @@ class Gambler:
         await asyncio.sleep(1.5)
         return await self.show_win_message(dice_msg, gain_type, self.get_balance_str(username))
 
-    async def galton(self, message: types.Message, bet: Decimal | str | float = 0):
-        username = message.from_user.username
+    async def galton(self, message: types.Message, bet: Decimal | str | float = 0, attempts: int = 1):
         bet = await self.process_bet(message, bet)
         if bet is None:
             return None
 
+        if attempts < 1 or attempts > 100:
+            return await message.reply("Amount of attempts should be between 1 and 100!")
+
+        username = message.from_user.username
         wait_msg = await message.reply("Waiting for simulation results...")
 
-        physics_simulation = PhysicsSimulation()
+        physics_simulation = PhysicsSimulation(attempts)
         multiplier, filename, duration = await run_in_thread(physics_simulation.render)
-        gain = float(bet) * multiplier
+        gain = multiplier * float(bet / attempts)
         if gain:
             ledger.record_gain(username, gain, f"Galton X{multiplier}")
 

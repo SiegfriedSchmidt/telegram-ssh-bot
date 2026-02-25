@@ -170,7 +170,7 @@ class PhysicsSimulation:
 
                         # shape = list(b.shapes)[0]
                         # shape.filter = pymunk.ShapeFilter(group=0)
-                    if b.position[1] < 0:
+                    if b.position[1] < 0 or ball_category[i]:
                         shape = list(b.shapes)[0]
                         space.remove(b, shape)
             if len(space.bodies) == 0 or resolved_count == len(balls):
@@ -289,9 +289,11 @@ class PhysicsSimulation:
         FFwriter = animation.FFMpegWriter(fps=fps)
         anim.save(filename, writer=FFwriter)
         plt.close(fig)
-        return float(manual_coefficients[ball_category[0] - 1]), filename, frames_count * interval
+
+        multiplier = np.round(np.sum(np.array(categories_count) * manual_coefficients), 1)
+        return float(multiplier), filename, frames_count * interval
 
 
 if __name__ == '__main__':
-    physics_simulation = PhysicsSimulation()
+    physics_simulation = PhysicsSimulation(5)
     print(physics_simulation.render())

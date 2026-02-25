@@ -1,7 +1,24 @@
-from aiogram.types import BotCommand
+from aiogram import Bot
+from aiogram.types import BotCommand, BotCommandScopeChatMember
 
-bot_commands = [
+from lib.config_reader import config
+
+bot_general_commands = [
     BotCommand(command='h', description='help message'),
+    BotCommand(command='joke', description='{joke_type:optional} - get joke'),
+    BotCommand(command='meme', description='{subreddit:optional} - get meme from reddit'),
+    BotCommand(command='ask', description='{prompt:required} - ask AI'),
+    BotCommand(command='geoip', description='{ip:required} - get geoip'),
+    BotCommand(command='gamble', description='{bet: optional} some gambling'),
+    BotCommand(command='galton', description='{bet: optional, attempts: optional} some galton board gambling'),
+    BotCommand(command='balance', description='show gambling balance'),
+    BotCommand(command='transfer', description='{amount: required, username: optional} - make transfer'),
+    BotCommand(command='daily_prize', description='obtain daily prize'),
+    BotCommand(command='ledger', description='show blockchain transactions'),
+    BotCommand(command='leaderboard', description='show leaderboard'),
+]
+
+bot_admin_commands = [
     BotCommand(command='projects', description='show all docker projects'),
     BotCommand(command='up', description='{project_name:required} - start docker project'),
     BotCommand(command='down', description='{project_name:required} - stop docker project'),
@@ -11,22 +28,11 @@ bot_commands = [
     BotCommand(command='stats', description='host statistics'),
     BotCommand(command='upload_faq', description='upload faq file'),
     BotCommand(command='faq', description='get faq file'),
-    BotCommand(command='joke', description='{joke_type:optional} - get joke'),
-    BotCommand(command='meme', description='{subreddit:optional} - get meme from reddit'),
     BotCommand(command='logs', description='get logs'),
-    BotCommand(command='ask', description='{prompt:required} - ask AI'),
     BotCommand(command='curl', description='curl command'),
-    BotCommand(command='geoip', description='{ip:required} - get geoip'),
     BotCommand(command='torip', description='get tor geoip'),
     BotCommand(command='openconnect', description='{status|restart|stop|start:required} manage openconnect service'),
     BotCommand(command='del', description='delete replied message'),
-    BotCommand(command='gamble', description='{bet: optional} some gambling'),
-    BotCommand(command='galton', description='{bet: optional} some galton board gambling'),
-    BotCommand(command='balance', description='show gambling balance'),
-    BotCommand(command='transfer', description='{amount: required, username: optional} - make transfer'),
-    BotCommand(command='daily_prize', description='obtain daily prize'),
-    BotCommand(command='ledger', description='show blockchain transactions'),
-    BotCommand(command='leaderboard', description='show leaderboard'),
     BotCommand(command='access', description='{otp_code:required} get privileged access'),
     BotCommand(command='activate', description='{terminal_type:optional} activate ssh session in text|image terminal'),
     BotCommand(command='deactivate', description='deactivate ssh session'),
@@ -42,4 +48,21 @@ bot_commands = [
     BotCommand(command='switch', description='switch to another ssh host'),
 ]
 
-text_bot_commands = '\n'.join([f"/{c.command} {c.description}" for c in bot_commands])
+bot_admin_commands += bot_general_commands
+
+
+def commands_to_text(commands: list[BotCommand]):
+    return '\n'.join([f"/{c.command} {c.description}" for c in commands])
+
+
+text_bot_general_commands = commands_to_text(bot_general_commands)
+text_bot_admin_commands = commands_to_text(bot_admin_commands)
+
+
+async def set_bot_commands(bot: Bot):
+    await bot.set_my_commands(bot_general_commands)
+
+    for group_id in config.group_ids:
+        for admin_id in config.admin_ids:
+            scope = BotCommandScopeChatMember(chat_id=group_id, user_id=admin_id)
+            await bot.set_my_commands(bot_admin_commands, scope=scope)

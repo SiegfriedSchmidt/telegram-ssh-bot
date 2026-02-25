@@ -1,24 +1,13 @@
-import asyncio
 import os
 import time
 from io import BytesIO
-
 from aiogram import Router, types
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove
 from aiogram.utils.chat_action import ChatActionMiddleware
-
-from lib import database
-from lib.ledger import ledger
-from lib.api.gemini_api import gemini_api
 from lib.api.geoip_api import geoip
-from lib.api.joke_api import get_joke
-from lib.api.meme_api import get_meme
-from lib.bot_commands import text_bot_commands
 from lib.downloader import downloader
-from lib.gambler import gambler
 from lib.init import data_folder_path, videos_folder_path
 from lib.keyboards.switch_host_keyboard import get_switch_host_keyboard
 from lib.logger import log_stream
@@ -38,10 +27,6 @@ def create_router():
     router = Router()
     router.message.middleware(ChatActionMiddleware())
     router.message.middleware(UserMiddleware())
-
-    @router.message(Command("h"))
-    async def h_cmd(message: types.Message):
-        await message.answer(text_bot_commands)
 
     @router.message(Command("stats"))
     async def stats_cmd(message: types.Message, user: User):
@@ -161,59 +146,10 @@ def create_router():
         document = FSInputFile(f"{data_folder_path}/faq.md", filename="faq.md")
         return await message.answer_document(document, caption=f"FAQ")
 
-    @router.message(Command("joke"))
-    async def joke_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        if len(args) > 1:
-            return await message.answer('too many args!')
-
-        try:
-            joke_type = args[0] if len(args) == 1 else None
-            joke = await get_joke(joke_type)
-        except Exception as e:
-            return await message.answer(str(e))
-        return await message.answer(joke)
-
-    @router.message(Command("meme"))
-    async def meme_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        if len(args) > 1:
-            return await message.answer('too many args!')
-
-        try:
-            meme_subreddit = args[0] if len(args) == 1 else None
-            url, caption = await get_meme(meme_subreddit)
-        except Exception as e:
-            return await message.answer(str(e))
-
-        try:
-            if url.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                await message.answer_photo(url, caption=caption)
-            elif url.endswith('.gif'):
-                await message.answer_animation(url, caption=caption)
-            elif url.endswith(('.mp4', '.gifv', '.webm')):
-                await message.answer_video(url, caption=caption)
-        except TelegramBadRequest:
-            await asyncio.sleep(1)
-            await message.answer(f"{url}\n\n{caption}", disable_web_page_preview=False)
-
-        return None
-
     @router.message(Command("logs"))
     async def logs_cmd(message: types.Message):
         file = BufferedInputFile(log_stream.get_file().read(), filename="logs.txt")
         return await message.answer_document(file)
-
-    @router.message(Command("ask"))
-    async def ask_cmd(message: types.Message, command: CommandObject):
-        args = command.args
-        if not args:
-            return await message.answer("You need to specify a query.")
-
-        answer = await message.answer('asking...')
-        response = await gemini_api.ask(args)
-        await large_respond(message, response)
-        return await answer.delete()
 
     @router.message(Command("curl"), flags={'otp': True})
     async def curl_cmd(message: types.Message, user: User, command: CommandObject):
@@ -221,22 +157,6 @@ def create_router():
         if not result:
             return await message.answer(error)
         return await message.answer(result)
-
-    @router.message(Command("geoip"))
-    async def geoip_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        if len(args) == 0:
-            return await message.answer('too few args!')
-
-        if len(args) > 1:
-            return await message.answer('too many args!')
-
-        try:
-            json = await geoip(args[0])
-            text = '\n'.join(f"{key}: {val}" for key, val in json.items())
-        except Exception as e:
-            return await message.answer(str(e))
-        return await message.answer(text)
 
     @router.message(Command("torip"))
     async def torip_cmd(message: types.Message, user: User):
@@ -397,85 +317,5 @@ def create_router():
             return await message.answer(str(e), reply_markup=ReplyKeyboardRemove())
 
         return await message.answer(f'Host has been switched to {user.host}!', reply_markup=ReplyKeyboardRemove())
-
-    @router.message(Command("niggachain"))
-    async def chain_cmd(message: types.Message):
-        return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')
-
-    @router.message(Command("gamble"))
-    async def gamble_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        bet = 0
-        if len(args) == 1:
-            if args[0].isdecimal():
-                bet = args[0]
-            else:
-                return await message.answer('bet should be decimal!')
-
-        if len(args) > 1:
-            return await message.answer('too many args!')
-
-        return await gambler.gamble(message, bet)
-
-    @router.message(Command("galton"))
-    async def galton_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        bet = 0
-        if len(args) == 1:
-            if args[0].isdecimal():
-                bet = args[0]
-            else:
-                return await message.answer('bet should be decimal!')
-
-        if len(args) > 1:
-            return await message.answer('too many args!')
-
-        return await gambler.galton(message, bet)
-
-    @router.message(Command("balance"))
-    async def balance_cmd(message: types.Message):
-        return await message.answer(f"Your balance is {ledger.get_user_balance(message.from_user.username)}.")
-
-    @router.message(Command("transfer"))
-    async def transfer_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        if message.reply_to_message:
-            to_user = message.reply_to_message.from_user.username
-            if len(args) == 1 and args[0].isdecimal():
-                amount = args[0]
-            else:
-                return await message.answer('Correct amount is required!')
-        elif len(args) == 2 and args[0].isdecimal():
-            amount = args[0]
-            to_user = args[1]
-        else:
-            return await message.answer('Invalid syntax!')
-        from_user = message.from_user.username
-        ledger.record_transaction(from_user, to_user, amount, "transfer")
-        return await message.answer(f"Successfully transferred {amount} to {to_user}!")
-
-    @router.message(Command("daily_prize"))
-    async def daily_prize_cmd(message: types.Message):
-        if database.available_daily_prize(message.from_user.username):
-            return await gambler.daily_prize(message)
-        else:
-            return await message.answer('Your daily prize already obtained! Wait for the next day!')
-
-    @router.message(Command("ledger"))
-    async def ledger_cmd(message: types.Message):
-        txs = ledger.get_recent_transactions(limit=100)
-        txs_count = ledger.get_transactions_count()
-        text_txs = '\n'.join([
-            f'{tx.height}. {tx.from_user} -> {tx.to_user}, {tx.amount}, {tx.description}' for tx in txs
-        ])
-        return await message.answer(f"<b>Ledger ({txs_count} transactions):</b>\n{text_txs}", parse_mode='html')
-
-    @router.message(Command("leaderboard"))
-    async def leaderboard_cmd(message: types.Message):
-        balances = ledger.get_all_balances()[1:]
-        text = '\n'.join([
-            f'{idx + 1}. {username}: {amount}' for idx, (username, amount) in enumerate(balances)
-        ])
-        return await message.answer(f"<b>Leaderboard:</b>\n{text}", parse_mode='html')
 
     return router
