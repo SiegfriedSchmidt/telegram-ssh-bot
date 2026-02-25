@@ -113,19 +113,19 @@ def create_router():
     async def galton_cmd(message: types.Message, command: CommandObject):
         args = get_args(command)
         bet = 0
-        attempts = 1
+        balls = 1
         if len(args) >= 1:
             if not args[0].isdecimal() or (bet := Decimal(args[0])) < 0:
                 return await message.answer('bet should be decimal and be greater than 0!')
 
         if len(args) == 2:
-            if not args[1].isdigit() or (attempts := int(args[1])) < 1:
-                return await message.answer('number of attempts should be decimal and be greater than 0!')
+            if not args[1].isdigit() or (balls := int(args[1])) < 1:
+                return await message.answer('number of balls should be decimal and be greater than 0!')
 
         if len(args) > 2:
             return await message.answer('too many args!')
 
-        return await gambler.galton(message, bet, attempts)
+        return await gambler.galton(message, bet, balls)
 
     @router.message(Command("balance"))
     async def balance_cmd(message: types.Message):

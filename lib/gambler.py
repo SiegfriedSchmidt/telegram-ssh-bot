@@ -89,10 +89,9 @@ class Gambler:
         else:
             database.set_user_bet(username, bet)
 
-        try:
-            ledger.record_deposit(username, bet, "bet")
-        except ValueError:
-            await message.reply(f"You don't have enough money: {ledger.get_user_balance(username)} < {bet}!")
+        balance = ledger.get_user_balance(username)
+        if balance < bet:
+            await message.reply(f"You don't have enough money: {balance} < {bet}!")
             return None
 
         return float(bet)
@@ -106,30 +105,41 @@ class Gambler:
         if bet is None:
             return None
 
+        if bet < 20:
+            return await message.reply("Bet should be greater than 20!")
+
         username = message.from_user.username
+        ledger.record_deposit(username, bet, "bet")
         dice_msg = await self.get_dice_msg(message)
+
         gain_type = self.determine_gain_type(dice_msg.dice.value)
-        gain = gamble_multipliers[gain_type] * bet
+        gain = int(gamble_multipliers[gain_type] * bet)
         if gain:
             ledger.record_gain(username, gain, f"Gamble {gain_type.value}")
 
         await asyncio.sleep(1.5)
         return await self.show_win_message(dice_msg, gain_type, self.get_balance_str(username))
 
-    async def galton(self, message: types.Message, bet: Decimal | str | float = 0, attempts: int = 1):
+    async def galton(self, message: types.Message, bet: Decimal | str | float = 0, balls: int = 1):
         bet = await self.process_bet(message, bet)
         if bet is None:
             return None
 
-        if attempts < 1 or attempts > 100:
-            return await message.reply("Amount of attempts should be between 1 and 100!")
+        if balls < 1 or balls > 100:
+            return await message.reply("Amount of balls should be between 1 and 100!")
+
+        bet_per_ball = float(bet / balls)
+        if bet_per_ball < 100:
+            return await message.reply("Bet per ball should be greater than 100!")
 
         username = message.from_user.username
+        ledger.record_deposit(username, bet, "bet")
         wait_msg = await message.reply("Waiting for simulation results...")
 
-        physics_simulation = PhysicsSimulation(attempts)
+        physics_simulation = PhysicsSimulation(balls)
         multiplier, filename, duration = await run_in_thread(physics_simulation.render)
-        gain = multiplier * float(bet / attempts)
+        gain = int(multiplier * bet_per_ball)
+        multiplier = round(multiplier / balls, 1)
         if gain:
             ledger.record_gain(username, gain, f"Galton X{multiplier}")
 
