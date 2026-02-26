@@ -3,16 +3,19 @@ from decimal import Decimal
 from aiogram import Router, types
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
+from aiogram.fsm.context import FSMContext
 from aiogram.utils.chat_action import ChatActionMiddleware
 from lib import database
 from lib.bot_commands import text_bot_general_commands, text_bot_admin_commands
 from lib.config_reader import config
+from lib.database import is_user_exists
 from lib.ledger import ledger
 from lib.api.gemini_api import gemini_api
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.api.geoip_api import geoip
 from lib.gambler import gambler
+from lib.states.confirmation_state import ConfirmationState
 from lib.utils.utils import get_args, large_respond
 
 
@@ -132,7 +135,7 @@ def create_router():
         return await message.answer(f"Your balance is {ledger.get_user_balance(message.from_user.username)}.")
 
     @router.message(Command("transfer"))
-    async def transfer_cmd(message: types.Message, command: CommandObject):
+    async def transfer_cmd(message: types.Message, command: CommandObject, state: FSMContext):
         args = get_args(command)
         if message.reply_to_message:
             to_user = message.reply_to_message.from_user.username
@@ -145,9 +148,34 @@ def create_router():
             to_user = args[1]
         else:
             return await message.answer('Invalid syntax!')
+
         from_user = message.from_user.username
+        if from_user == to_user:
+            return await message.answer("You can't transfer to yourself!")
+
+        me = await message.bot.me()
+        is_user_me = to_user == me.username
+        if is_user_me or not is_user_exists(to_user):
+            await state.set_state(ConfirmationState.transfer_confirmation)
+            await state.set_data({"to_user": to_user, "amount": amount})
+            return await message.answer(
+                f"Are you sure you want to transfer {amount} to {'me' if is_user_me else 'nonexistent user'} (y/n)?"
+            )
+
         ledger.record_transaction(from_user, to_user, amount, "transfer")
         return await message.answer(f"Successfully transferred {amount} to {to_user}!")
+
+    @router.message(ConfirmationState.transfer_confirmation)
+    async def transfer(message: types.Message, state: FSMContext):
+        if message.text == "y":
+            state_data = await state.get_data()
+            to_user, amount = state_data["to_user"], state_data["amount"]
+            from_user = message.from_user.username
+            ledger.record_transaction(from_user, to_user, amount, "transfer")
+            await message.answer(f"Successfully transferred {amount} to {to_user}!")
+        else:
+            await message.answer('abort')
+        return await state.clear()
 
     @router.message(Command("daily_prize"))
     async def daily_prize_cmd(message: types.Message):

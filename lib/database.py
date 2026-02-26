@@ -48,6 +48,10 @@ peewee_logger.info("Connected to database.")
 peewee_logger.disabled = True
 
 
+def is_user_exists(username: str) -> bool:
+    return User.get_or_none(username=username) is not None
+
+
 def get_user_bet(username: str) -> Decimal:
     user = User.get_or_create(username=username)[0]
     return user.bet

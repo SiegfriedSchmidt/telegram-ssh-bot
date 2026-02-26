@@ -6,3 +6,4 @@ class ConfirmationState(StatesGroup):
     reboot_confirmation = State()
     admin_send_confirmation = State()
     clear_videos_confirmation = State()
+    transfer_confirmation = State()
