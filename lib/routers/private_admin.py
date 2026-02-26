@@ -52,8 +52,24 @@ async def send(message: types.Message, state: FSMContext):
 @router.message(Command("tx"))
 async def tx_cmd(message: types.Message, command: CommandObject):
     args = get_args(command)
-    if len(args) != 4 or not args[2].isdecimal():
+    if len(args) < 4 or not args[2].isdecimal():
         return await message.answer('Invalid amount or type of arguments.')
 
-    ledger.record_transaction(*args)
-    return await message.answer(f'Transaction: {", ".join(args)} - recorded!')
+    tx = ledger.record_transaction(*args[:3], " ".join(args[3:]))
+    return await message.answer(
+        f'Transaction: {tx.from_user} -> {tx.to_user}: {tx.amount}, {tx.description} - recorded!'
+    )
+
+
+@router.message(Command("import_transactions"))
+async def import_transactions_cmd(message: types.Message):
+    if not message.reply_to_message:
+        return await message.answer("You should reply to a message with document.")
+    if not message.reply_to_message.document:
+        return await message.answer("You should reply to a message containing document.")
+
+    doc = message.reply_to_message.document
+    file = await message.bot.get_file(doc.file_id)
+    downloaded_file = await message.bot.download_file(file.file_path)
+    count = ledger.import_transactions_csv(downloaded_file)
+    return await message.answer(f"Total imported transactions: {count}")

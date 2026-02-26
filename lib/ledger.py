@@ -1,11 +1,11 @@
+import csv
 import hashlib
 import json
 from decimal import Decimal
 from datetime import datetime
-from typing import Optional
-
+from io import StringIO
+from typing import Optional, BinaryIO
 from peewee import prefetch
-
 from lib.database import db, Transaction, User
 from lib.logger import ledger_logger
 
@@ -56,7 +56,7 @@ class Ledger:
         self.__balances.clear()
         self.__balances[GENESIS_USER] = GENESIS["amount"]
 
-        txs = self.__get_all_transactions()
+        txs = self.get_transactions(ascending=True)
         if not txs:
             self.init_genesis()
             return
@@ -89,7 +89,7 @@ class Ledger:
         )
 
     def record_transaction(self, from_username: str, to_username: str, amount: Decimal | str | float,
-                           description: str = None):
+                           description: str = None, timestamp: str = None) -> Transaction:
         amount = Decimal(int(amount))
 
         if amount <= 0:
@@ -106,7 +106,7 @@ class Ledger:
 
             tx_data = {
                 "height": last_tx.height + 1,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now().isoformat() if timestamp is None else timestamp,
                 "from_user": from_user.username if from_user else None,
                 "to_user": to_user.username if to_user else None,
                 "amount": str(amount),
@@ -138,6 +138,32 @@ class Ledger:
     def get_all_balances(self):
         return sorted(list(self.__balances.items()), key=lambda item: item[1], reverse=True)
 
+    def import_transactions_csv(self, file: BinaryIO) -> int:
+        reader = csv.reader(StringIO(file.read().decode("utf-8")), delimiter=' ', quotechar='"')
+        next(reader)
+        count = 0
+        for row in reader:
+            if all(row):
+                count += 1
+                self.record_transaction(*row)
+
+        return count
+
+    def export_transactions_csv(self) -> str:
+        file = StringIO()
+        writer = csv.writer(file, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(["from_user", "to_user", "amount", "description", "timestamp"])
+        for tx in self.get_transactions(ascending=True):
+            writer.writerow([
+                tx.from_user.username if tx.from_user else None,
+                tx.to_user.username if tx.to_user else None,
+                tx.amount,
+                tx.description,
+                tx.timestamp
+            ])
+        file.name = "transactions.csv"
+        return file.getvalue()
+
     @staticmethod
     def get_user_transactions(username: str, limit: Optional[int] = None) -> list[Transaction]:
         return list(
@@ -149,11 +175,11 @@ class Ledger:
         )
 
     @staticmethod
-    def get_recent_transactions(limit: Optional[int] = None) -> list[Transaction]:
+    def get_transactions(limit: Optional[int] = None, ascending=False) -> list[Transaction]:
         transactions = (
             Transaction
             .select()
-            .order_by(Transaction.height.desc())
+            .order_by(Transaction.height.asc() if ascending else Transaction.height.desc())
             .limit(limit)
         )
         users = User.select()
@@ -162,16 +188,6 @@ class Ledger:
     @staticmethod
     def get_transactions_count() -> int:
         return Transaction.select().count()
-
-    @staticmethod
-    def __get_all_transactions() -> list[Transaction]:
-        transactions = (
-            Transaction
-            .select()
-            .order_by(Transaction.height.asc())
-        )
-        users = User.select()
-        return prefetch(transactions, users)
 
 
 ledger = Ledger()

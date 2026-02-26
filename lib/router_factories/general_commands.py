@@ -4,6 +4,7 @@ from aiogram import Router, types
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
+from aiogram.types import BufferedInputFile
 from aiogram.utils.chat_action import ChatActionMiddleware
 from lib import database
 from lib.bot_commands import text_bot_general_commands, text_bot_admin_commands
@@ -186,7 +187,7 @@ def create_router():
 
     @router.message(Command("ledger"))
     async def ledger_cmd(message: types.Message):
-        txs = ledger.get_recent_transactions(limit=100)
+        txs = ledger.get_transactions(limit=100)
         txs_count = ledger.get_transactions_count()
         text_txs = '\n'.join([
             f'{tx.height}. {tx.from_user} -> {tx.to_user}, {tx.amount}, {tx.description}' for tx in txs
@@ -200,5 +201,10 @@ def create_router():
             f'{idx + 1}. {username}: {amount}' for idx, (username, amount) in enumerate(balances)
         ])
         return await message.answer(f"<b>Leaderboard:</b>\n{text}", parse_mode='html')
+
+    @router.message(Command("export_transactions"))
+    async def export_transactions_cmd(message: types.Message):
+        file = BufferedInputFile(ledger.export_transactions_csv().encode("utf-8"), filename="transactions.csv")
+        return await message.answer_document(file)
 
     return router
