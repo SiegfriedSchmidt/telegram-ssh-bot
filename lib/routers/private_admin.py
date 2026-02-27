@@ -2,7 +2,7 @@ from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from lib.config_reader import config
-from lib.ledger import ledger
+from lib.ledger import Ledger
 from lib.router_factories import admin_commands, ssh_session, general_commands
 from lib.states.confirmation_state import ConfirmationState
 from lib.storage import storage
@@ -50,7 +50,7 @@ async def send(message: types.Message, state: FSMContext):
 
 
 @router.message(Command("tx"))
-async def tx_cmd(message: types.Message, command: CommandObject):
+async def tx_cmd(message: types.Message, command: CommandObject, ledger: Ledger):
     args = get_args(command)
     if len(args) < 4 or not args[2].isdecimal():
         return await message.answer('Invalid amount or type of arguments.')
@@ -62,7 +62,7 @@ async def tx_cmd(message: types.Message, command: CommandObject):
 
 
 @router.message(Command("import_transactions"))
-async def import_transactions_cmd(message: types.Message):
+async def import_transactions_cmd(message: types.Message, ledger: Ledger):
     if not message.reply_to_message:
         return await message.answer("You should reply to a message with document.")
     if not message.reply_to_message.document:

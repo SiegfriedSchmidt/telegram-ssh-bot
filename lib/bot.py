@@ -1,19 +1,20 @@
 import asyncio
 import nest_asyncio
-import signal
-from typing import Any, Callable, Coroutine
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.exceptions import TelegramBadRequest
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
 # from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.bot_commands import set_bot_commands
 from lib.config_reader import config
+from lib.gambler import Gambler
 from lib.init import galton_folder_path
+from lib.ledger import Ledger
 from lib.routers import public_commands, errors, group_admin, group_general, private_admin
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
@@ -23,16 +24,6 @@ from lib.storage import storage
 from lib.utils.utils import clear_dir_contents
 
 nest_asyncio.apply()
-
-
-class DispatcherOnShutdown(Dispatcher):
-    def __init__(self, on_shutdown: Callable[[], Coroutine], **kwargs: Any):
-        self.on_shutdown = on_shutdown
-        super().__init__(**kwargs)
-
-    def _signal_stop_polling(self, sig: signal.Signals) -> None:
-        asyncio.run(self.on_shutdown())
-        super()._signal_stop_polling(sig)
 
 
 async def notification(message: str, bot: Bot):
@@ -73,34 +64,51 @@ async def on_day_start(bot: Bot):
     main_logger.info("Day start function executed.")
 
 
+async def on_startup(bot: Bot, scheduler: AsyncIOScheduler, ledger: Ledger) -> None:
+    # ledger
+    me = await bot.get_me()
+    ledger.genesis_username = me.username
+    try:
+        ledger.load_and_verify_chain()
+    except ValueError as e:
+        await notification(str(e), bot)
+        await bot.session.close()
+        raise
+
+    # scheduler
+    hour, minute = map(int, config.day_start_time.split(":"))
+    scheduler.add_job(on_day_start, CronTrigger(hour=hour, minute=minute), args=(bot,))
+    scheduler.add_job(ledger.mine_block, IntervalTrigger(seconds=storage.mine_block_interval_seconds))
+    scheduler.start()
+
+    # check nextcloud
+    containers_json = ssh_manager[config.main_host.get_secret_value()].get_running_containers()
+    nextcloud_running = False
+    for c in containers_json:
+        if c["Image"] == 'nextcloud':
+            nextcloud_running = True
+    start_message = "Bot started." + (
+        " Nextcloud is NOT running. Launch it via '/up nextcloud'." if not nextcloud_running else ''
+    )
+    await notification(start_message, bot)
+
+
+async def on_shutdown(bot: Bot, scheduler: AsyncIOScheduler) -> None:
+    scheduler.shutdown(wait=True)
+    await notification("Bot stopped.", bot)
+
+
 async def main():
     # logging.basicConfig(level=logging.DEBUG)
     session = AiohttpSession(proxy=config.proxy_url if config.proxy_url else None)
     bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=None), session=session)
 
-    async def on_shutdown():
-        await notification("Bot stopped.", bot)
-
-    async def on_start():
-        containers_json = ssh_manager[config.main_host.get_secret_value()].get_running_containers()
-        nextcloud_running = False
-        for c in containers_json:
-            if c["Image"] == 'nextcloud':
-                nextcloud_running = True
-        start_message = "Bot started." + (
-            " Nextcloud is NOT running. Launch it via '/up nextcloud'." if not nextcloud_running else ''
-        )
-        await notification(start_message, bot)
-
-    # scheduler
-    scheduler = AsyncIOScheduler()
-    hour, minute = map(int, config.day_start_time.split(":"))
-    trigger = CronTrigger(hour=hour, minute=minute)
-    scheduler.add_job(on_day_start, trigger, args=(bot,))
-    scheduler.start()
-
     # dispatcher
-    dp = DispatcherOnShutdown(on_shutdown)
+    dp = Dispatcher()
+
+    # register startup/shutdown
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
 
     # middlewares
     dp.message.middleware(LoggerMiddleware())
@@ -115,10 +123,18 @@ async def main():
         private_admin.router
     )
 
-    await on_start()
     await bot.delete_webhook(drop_pending_updates=True)
     await set_bot_commands(bot)
-    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+
+    # init shared classes
+    scheduler = AsyncIOScheduler()
+    ledger = Ledger()
+    gambler = Gambler(ledger)
+
+    await dp.start_polling(
+        bot, allowed_updates=dp.resolve_used_update_types(),
+        scheduler=scheduler, ledger=ledger, gambler=gambler
+    )
 
 
 def start_bot():

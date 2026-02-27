@@ -10,6 +10,7 @@ from lib.init import persistent_file_path
 @dataclass
 class PersistentData:
     notification_enabled = True
+    mine_block_interval_seconds = 600
     # admin_ids: List[int] = field(default_factory=list)
 
 

@@ -9,13 +9,13 @@ from aiogram.utils.chat_action import ChatActionMiddleware
 from lib import database
 from lib.bot_commands import text_bot_general_commands, text_bot_admin_commands
 from lib.config_reader import config
-from lib.database import is_user_exists
-from lib.ledger import ledger
+from lib.database import is_user_exists, available_mine_attempt
+from lib.ledger import Ledger
 from lib.api.gemini_api import gemini_api
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.api.geoip_api import geoip
-from lib.gambler import gambler
+from lib.gambler import Gambler
 from lib.states.confirmation_state import ConfirmationState
 from lib.utils.utils import get_args, large_respond
 
@@ -101,7 +101,7 @@ def create_router():
         return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')
 
     @router.message(Command("gamble"))
-    async def gamble_cmd(message: types.Message, command: CommandObject):
+    async def gamble_cmd(message: types.Message, command: CommandObject, gambler: Gambler):
         args = get_args(command)
         bet = 0
         if len(args) == 1:
@@ -114,7 +114,7 @@ def create_router():
         return await gambler.gamble(message, bet)
 
     @router.message(Command("galton"))
-    async def galton_cmd(message: types.Message, command: CommandObject):
+    async def galton_cmd(message: types.Message, command: CommandObject, gambler: Gambler):
         args = get_args(command)
         bet = 0
         balls = 1
@@ -132,11 +132,11 @@ def create_router():
         return await gambler.galton(message, bet, balls)
 
     @router.message(Command("balance"))
-    async def balance_cmd(message: types.Message):
+    async def balance_cmd(message: types.Message, ledger: Ledger):
         return await message.answer(f"Your balance is {ledger.get_user_balance(message.from_user.username)}.")
 
     @router.message(Command("transfer"))
-    async def transfer_cmd(message: types.Message, command: CommandObject, state: FSMContext):
+    async def transfer_cmd(message: types.Message, command: CommandObject, state: FSMContext, ledger: Ledger):
         args = get_args(command)
         if message.reply_to_message:
             to_user = message.reply_to_message.from_user.username
@@ -167,7 +167,7 @@ def create_router():
         return await message.answer(f"Successfully transferred {amount} to {to_user}!")
 
     @router.message(ConfirmationState.transfer_confirmation)
-    async def transfer(message: types.Message, state: FSMContext):
+    async def transfer(message: types.Message, state: FSMContext, ledger: Ledger):
         if message.text == "y":
             state_data = await state.get_data()
             to_user, amount = state_data["to_user"], state_data["amount"]
@@ -179,23 +179,24 @@ def create_router():
         return await state.clear()
 
     @router.message(Command("daily_prize"))
-    async def daily_prize_cmd(message: types.Message):
+    async def daily_prize_cmd(message: types.Message, gambler: Gambler):
         if database.available_daily_prize(message.from_user.username):
             return await gambler.daily_prize(message)
         else:
             return await message.answer('Your daily prize already obtained! Wait for the next day!')
 
     @router.message(Command("ledger"))
-    async def ledger_cmd(message: types.Message):
-        txs = ledger.get_transactions(limit=100)
+    async def ledger_cmd(message: types.Message, ledger: Ledger):
+        txs = ledger.get_transactions(limit=50)
         txs_count = ledger.get_transactions_count()
         text_txs = '\n'.join([
-            f'{tx.height}. {tx.from_user} -> {tx.to_user}, {tx.amount}, {tx.description}' for tx in txs
+            f'{tx.number}. {tx.from_user} -> {tx.to_user}, {tx.amount}, {tx.description} - {"pending" if tx.block is None else f"block {tx.block.height}"}'
+            for tx in txs
         ])
         return await message.answer(f"<b>Ledger ({txs_count} transactions):</b>\n{text_txs}", parse_mode='html')
 
     @router.message(Command("leaderboard"))
-    async def leaderboard_cmd(message: types.Message):
+    async def leaderboard_cmd(message: types.Message, ledger: Ledger):
         balances = ledger.get_all_balances()[1:]
         text = '\n'.join([
             f'{idx + 1}. {username}: {amount}' for idx, (username, amount) in enumerate(balances)
@@ -203,8 +204,39 @@ def create_router():
         return await message.answer(f"<b>Leaderboard:</b>\n{text}", parse_mode='html')
 
     @router.message(Command("export_transactions"))
-    async def export_transactions_cmd(message: types.Message):
+    async def export_transactions_cmd(message: types.Message, ledger: Ledger):
         file = BufferedInputFile(ledger.export_transactions_csv().encode("utf-8"), filename="transactions.csv")
         return await message.answer_document(file)
+
+    @router.message(Command("blocks"))
+    async def blocks_cmd(message: types.Message, ledger: Ledger):
+        blocks = ledger.get_blocks(limit=100)
+        blocks_count = ledger.get_blocks_count()
+        text_blocks = '\n'.join([f'Block: {b.height}, miner: {b.miner}, hash: {b.block_hash}' for b in blocks])
+        return await message.answer(f"<b>Blocks list ({blocks_count}):</b>\n{text_blocks}", parse_mode='html')
+
+    @router.message(Command("mine_block"))
+    async def mine_block_cmd(message: types.Message, ledger: Ledger):
+        block = ledger.mine_block()
+        if block is None:
+            return await message.answer("No pending transactions!")
+
+        return await message.answer(f"Block {block.height} successfully mined by {block.miner}!")
+
+    @router.message(Command("mine_block_attempt"))
+    async def mine_block_attempt(message: types.Message, command: CommandObject, ledger: Ledger):
+        args = get_args(command)
+        if len(args) != 1 or not args[0].isdigit():
+            return await message.answer("Invalid number or type of arguments!")
+
+        username = message.from_user.username
+        if not available_mine_attempt(username):
+            return await message.answer("You already used your mine attempt, wait for the next one!")
+
+        block = ledger.mine_block(username)
+        if block is None:
+            return await message.answer("No pending transactions!")
+
+        return await message.answer(f"Block {block.height} successfully mined by {block.miner}!")
 
     return router

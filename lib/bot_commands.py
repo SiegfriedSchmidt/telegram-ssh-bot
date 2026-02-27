@@ -15,8 +15,11 @@ bot_general_commands = [
     BotCommand(command='transfer', description='{amount: required, username: optional} - make transfer'),
     BotCommand(command='daily_prize', description='obtain daily prize'),
     BotCommand(command='ledger', description='show blockchain transactions'),
+    BotCommand(command='blocks', description='show blockchain blocks'),
     BotCommand(command='leaderboard', description='show leaderboard'),
     BotCommand(command='export_transactions', description='export all transactions in csv file'),
+    BotCommand(command='mine_block', description='force mining for genesis user'),
+    BotCommand(command='mine_block_attempt', description='{nonce: optional} attempt to mine by yourself'),
 ]
 
 bot_admin_commands = [

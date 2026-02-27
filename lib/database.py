@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from lib.config_reader import config
 from lib.logger import peewee_logger
 from lib.init import database_file_path
+from lib.storage import storage
 from lib.utils.utils import used_today
 from peewee import *
 
@@ -16,33 +17,48 @@ class BaseModel(Model):
 
 class User(BaseModel):
     username = CharField(unique=True, primary_key=True)
-    bet = DecimalField(default=100, decimal_places=10)
+    bet = DecimalField(default=100, decimal_places=64)
     daily_prize_time = DateTimeField(default=datetime(1980, 1, 1))
+    mine_attempt_time = DateTimeField(default=datetime(1980, 1, 1))
 
 
-class Transaction(BaseModel):
-    height = IntegerField(unique=True, primary_key=True)  # 0 = genesis, 1, 2, ...
+class Block(BaseModel):
+    height = IntegerField(unique=True, primary_key=True)
     timestamp = DateTimeField()
-    from_user = ForeignKeyField(User, null=True, backref='sent')
-    to_user = ForeignKeyField(User, null=True, backref='received')
-    amount = DecimalField(decimal_places=8, constraints=[Check('amount > 0')])
-    description = TextField(null=True)
+    miner = ForeignKeyField(User, backref='blocks')
+    merkle_root = CharField(max_length=64)
+    nonce = IntegerField()
     prev_hash = CharField(max_length=64)
-    tx_hash = CharField(max_length=64, unique=True)
-
-    def __str__(self):
-        return f'{self.height} - {self.timestamp}'
+    block_hash = CharField(max_length=64, unique=True)
 
     class Meta:
         indexes = (
             (('height',), True),
-            (('from_user', 'to_user'), False),
+        )
+
+
+class Transaction(BaseModel):
+    number = AutoField()
+    block = ForeignKeyField(Block, null=True, backref='transactions')  # None = pending
+    timestamp = DateTimeField()
+    from_user = ForeignKeyField(User, null=True, backref='sent')
+    to_user = ForeignKeyField(User, backref='received')
+    amount = DecimalField(decimal_places=64, constraints=[Check('amount > 0')])
+    description = TextField(null=True)
+    tx_hash = CharField(max_length=64, unique=True)
+
+    def __str__(self):
+        return f'{"pending" if self.block is None else self.block} - {self.timestamp}'
+
+    class Meta:
+        indexes = (
+            (('block', 'timestamp'), False),
         )
 
 
 db.connect()
-# db.drop_tables([User, Transaction])
-db.create_tables([User, Transaction])
+# db.drop_tables([User, Block, Transaction])
+db.create_tables([User, Block, Transaction])
 
 peewee_logger.info("Connected to database.")
 peewee_logger.disabled = True
@@ -67,6 +83,17 @@ def available_daily_prize(username: str) -> bool:
     user = User.get_or_create(username=username)[0]
     if not used_today(user.daily_prize_time, config.day_start_time):
         user.daily_prize_time = datetime.now()
+        user.save()
+        return True
+    return False
+
+
+def available_mine_attempt(username: str) -> bool:
+    user = User.get_or_create(username=username)[0]
+    now = datetime.now()
+    delta = timedelta(seconds=storage.mine_block_interval_seconds) - (now - user.mine_attempt_time)
+    if delta.total_seconds() < 0:
+        user.mine_attempt_time = now
         user.save()
         return True
     return False

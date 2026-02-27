@@ -3,7 +3,7 @@ import numpy as np
 from decimal import Decimal
 from aiogram import types
 from aiogram.types import FSInputFile
-from lib.ledger import ledger
+from lib.ledger import Ledger
 from lib import database
 from lib.models import GainType
 from lib.physics_simulation import PhysicsSimulation
@@ -25,6 +25,9 @@ daily_multipliers = {
 
 
 class Gambler:
+    def __init__(self, ledger: Ledger):
+        self.ledger = ledger
+
     @staticmethod
     def convert_dice_val(dice_val: int):
         # bar, plum, lemon, seven
@@ -75,8 +78,7 @@ class Gambler:
         else:
             return GainType.loss
 
-    @staticmethod
-    async def process_bet(message: types.Message, bet: Decimal | str | float = 0) -> float | None:
+    async def process_bet(self, message: types.Message, bet: Decimal | str | float = 0) -> float | None:
         username = message.from_user.username
         bet = Decimal(bet)
 
@@ -89,16 +91,15 @@ class Gambler:
         else:
             database.set_user_bet(username, bet)
 
-        balance = ledger.get_user_balance(username)
+        balance = self.ledger.get_user_balance(username)
         if balance < bet:
             await message.reply(f"You don't have enough money: {balance} < {bet}!")
             return None
 
         return float(bet)
 
-    @staticmethod
-    def get_balance_str(username: str) -> str:
-        return f'{username}: {ledger.get_user_balance(username)} coins.'
+    def get_balance_str(self, username: str) -> str:
+        return f'{username}: {self.ledger.get_user_balance(username)} coins.'
 
     async def gamble(self, message: types.Message, bet: Decimal | str | float = 0):
         bet = await self.process_bet(message, bet)
@@ -109,13 +110,13 @@ class Gambler:
             return await message.reply("Bet should be greater than 20!")
 
         username = message.from_user.username
-        ledger.record_deposit(username, bet, "bet")
+        self.ledger.record_deposit(username, bet, "bet")
         dice_msg = await self.get_dice_msg(message)
 
         gain_type = self.determine_gain_type(dice_msg.dice.value)
         gain = int(gamble_multipliers[gain_type] * bet)
         if gain:
-            ledger.record_gain(username, gain, f"Gamble {gain_type.value}")
+            self.ledger.record_gain(username, gain, f"Gamble {gain_type.value}")
 
         await asyncio.sleep(1.5)
         return await self.show_win_message(dice_msg, gain_type, self.get_balance_str(username))
@@ -133,7 +134,7 @@ class Gambler:
             return await message.reply("Bet per ball should be greater than 100!")
 
         username = message.from_user.username
-        ledger.record_deposit(username, bet, "bet")
+        self.ledger.record_deposit(username, bet, "bet")
         wait_msg = await message.reply("Waiting for simulation results...")
 
         physics_simulation = PhysicsSimulation(balls)
@@ -141,7 +142,7 @@ class Gambler:
         gain = int(multiplier * bet_per_ball)
         multiplier = round(multiplier / balls, 1)
         if gain:
-            ledger.record_gain(username, gain, f"Galton X{multiplier}")
+            self.ledger.record_gain(username, gain, f"Galton X{multiplier}")
 
         await wait_msg.delete()
         animation = FSInputFile(filename, filename=str(filename))
@@ -155,13 +156,11 @@ class Gambler:
         dice_msg = await self.get_dice_msg(message)
         gain_type = self.determine_gain_type(dice_msg.dice.value)
         gain = daily_multipliers[gain_type]
-        ledger.record_gain(username, gain, f"Daily {gain_type.value}")
+        self.ledger.record_gain(username, gain, f"Daily {gain_type.value}")
 
         await asyncio.sleep(1.5)
         return await self.show_win_message(dice_msg, gain_type, self.get_balance_str(username))
 
-
-gambler = Gambler()
 
 if __name__ == '__main__':
     values = np.array(list(gamble_multipliers.values()))

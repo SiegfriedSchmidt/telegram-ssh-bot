@@ -1,8 +1,7 @@
 from aiogram import Router, F, types
 from aiogram.types import ReactionTypeEmoji
-
 from lib.config_reader import config
-from lib.gambler import gambler
+from lib.gambler import Gambler
 
 router = Router()
 
@@ -20,5 +19,5 @@ async def bipki_message(message: types.Message):
 
 
 @router.message(F.dice.emoji == "🎰")
-async def dice_message(message: types.Message):
+async def dice_message(message: types.Message, gambler: Gambler):
     await gambler.gamble(message)
