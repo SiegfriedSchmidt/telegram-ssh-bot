@@ -10,7 +10,7 @@ from lib import database
 from lib.bot_commands import text_bot_general_commands, text_bot_admin_commands
 from lib.config_reader import config
 from lib.database import is_user_exists, available_mine_attempt, get_transactions, get_transactions_count, get_blocks, \
-    get_blocks_count, get_block, get_block_transactions
+    get_blocks_count, get_block, get_block_transactions, get_user_stats
 from lib.ledger import Ledger, BlockNotMined
 from lib.api.gemini_api import gemini_api
 from lib.api.joke_api import get_joke
@@ -197,8 +197,10 @@ def create_router():
         return await message.answer(f"<b>Ledger ({txs_count} transactions):</b>\n{text_txs}", parse_mode='html')
 
     @router.message(Command("leaderboard"))
-    async def leaderboard_cmd(message: types.Message, ledger: Ledger):
-        balances = ledger.get_all_balances()[1:]
+    async def leaderboard_cmd(message: types.Message, command: CommandObject, ledger: Ledger):
+        args = get_args(command)
+        balances = ledger.get_all_balances() if len(args) == 1 and args[0] == "all" else ledger.get_all_balances()[1:]
+
         text = '\n'.join([
             f'{idx + 1}. {username}: {amount}' for idx, (username, amount) in enumerate(balances)
         ])
@@ -261,5 +263,25 @@ def create_router():
         ])
 
         return await message.answer(f"{text_block}\n{text_txs}")
+
+    @router.message(Command("user_stats"))
+    async def user_stats_cmd(message: types.Message, command: CommandObject):
+        args = get_args(command)
+
+        if message.reply_to_message:
+            username = message.reply_to_message.from_user.username
+        elif len(args) == 1:
+            username = args[0]
+        else:
+            username = message.from_user.username
+
+        stats = get_user_stats(username)
+        if stats is None:
+            return await message.answer(f"No statistic for {username} found!")
+
+        return await message.answer(
+            f"<b>{username} stats:</b>\nDaily prizes opened: {stats.prizes}\nGamble attempts: {stats.gamble}\nGalton attempts: {stats.galton}\nMine attempts: {stats.mine}",
+            parse_mode='html'
+        )
 
     return router

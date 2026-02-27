@@ -4,6 +4,7 @@ from typing import Optional
 from lib.config_reader import config
 from lib.logger import peewee_logger
 from lib.init import database_file_path
+from lib.models import StatsType
 from lib.storage import storage
 from lib.utils.utils import used_today
 from peewee import *
@@ -21,6 +22,14 @@ class User(BaseModel):
     bet = DecimalField(default=100, decimal_places=64)
     daily_prize_time = DateTimeField(default=datetime(1980, 1, 1))
     mine_attempt_time = DateTimeField(default=datetime(1980, 1, 1))
+
+
+class Stats(BaseModel):
+    user = ForeignKeyField(User, unique=True, backref="stats")
+    prizes = IntegerField(default=0)
+    mine = IntegerField(default=0)
+    gamble = IntegerField(default=0)
+    galton = IntegerField(default=0)
 
 
 class Block(BaseModel):
@@ -58,8 +67,8 @@ class Transaction(BaseModel):
 
 
 db.connect()
-# db.drop_tables([User, Block, Transaction])
-db.create_tables([User, Block, Transaction])
+# db.drop_tables([User, Stats, Block, Transaction])
+db.create_tables([User, Stats, Block, Transaction])
 
 peewee_logger.info("Connected to database.")
 peewee_logger.disabled = True
@@ -80,10 +89,40 @@ def set_user_bet(username: str, bet: Decimal | str | float) -> None:
     user.save()
 
 
+def get_user_stats(username: str) -> Stats | None:
+    user = User.get_or_none(username=username)
+    if user is None:
+        return None
+    return user.stats.first()
+
+
+def update_user_stats(user_or_name: str | User, stat_type: StatsType, increment: int = 1):
+    if isinstance(user_or_name, str):
+        user: User = User.get_or_create(username=user_or_name)[0]
+    elif isinstance(user_or_name, User):
+        user = user_or_name
+    else:
+        raise TypeError("user_or_name must be str or User!")
+
+    stats = Stats.get_or_create(user=user)[0]
+    match stat_type:
+        case StatsType.prizes:
+            stats.prizes += increment
+        case StatsType.mine:
+            stats.mine += increment
+        case StatsType.gamble:
+            stats.gamble += increment
+        case StatsType.galton:
+            stats.galton += increment
+
+    stats.save()
+
+
 def available_daily_prize(username: str) -> bool:
     user = User.get_or_create(username=username)[0]
     if not used_today(user.daily_prize_time, config.day_start_time):
         user.daily_prize_time = datetime.now()
+        update_user_stats(user, StatsType.prizes)
         user.save()
         return True
     return False
@@ -95,6 +134,7 @@ def available_mine_attempt(username: str) -> bool:
     delta = timedelta(seconds=storage.mine_block_interval_seconds) - (now - user.mine_attempt_time)
     if delta.total_seconds() < 0:
         user.mine_attempt_time = now
+        update_user_stats(user, StatsType.mine)
         user.save()
         return True
     return False

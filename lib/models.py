@@ -38,3 +38,10 @@ class GainType(str, BaseEnum):
     jackpot = 'jackpot'
     nice_win = 'nice_win'
     loss = 'loss'
+
+
+class StatsType(str, BaseEnum):
+    prizes = 'prizes'
+    mine = 'mine'
+    gamble = 'gamble'
+    galton = 'galton'

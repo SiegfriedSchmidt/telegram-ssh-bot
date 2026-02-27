@@ -3,9 +3,10 @@ import numpy as np
 from decimal import Decimal
 from aiogram import types
 from aiogram.types import FSInputFile
+from lib.database import update_user_stats
 from lib.ledger import Ledger
 from lib import database
-from lib.models import GainType
+from lib.models import GainType, StatsType
 from lib.physics_simulation import PhysicsSimulation
 from lib.utils.utils import run_in_thread
 
@@ -110,11 +111,13 @@ class Gambler:
             return await message.reply("Bet should be greater than 20!")
 
         username = message.from_user.username
-        self.ledger.record_deposit(username, bet, "bet")
         dice_msg = await self.get_dice_msg(message)
 
         gain_type = self.determine_gain_type(dice_msg.dice.value)
         gain = int(gamble_multipliers[gain_type] * bet)
+
+        update_user_stats(username, StatsType.gamble)
+        self.ledger.record_deposit(username, bet, "bet")
         if gain:
             self.ledger.record_gain(username, gain, f"Gamble {gain_type.value}")
 
@@ -141,6 +144,7 @@ class Gambler:
         gain = int(multiplier * bet_per_ball)
         multiplier = round(multiplier / balls, 1)
 
+        update_user_stats(username, StatsType.galton)
         self.ledger.record_deposit(username, bet, "bet")
         if gain:
             self.ledger.record_gain(username, gain, f"Galton X{multiplier}")
