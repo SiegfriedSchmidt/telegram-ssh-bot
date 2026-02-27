@@ -96,6 +96,58 @@ def get_user_stats(username: str) -> Stats | None:
     return user.stats.first()
 
 
+def reset_daily_prize_time_for_user(username: str) -> None:
+    user: User | None = User.get_or_none(username=username)
+    if user is None:
+        return
+
+    user.daily_prize_time = datetime(1980, 1, 1)
+    user.save()
+
+
+def get_daily_amount_for_user(username: str) -> int:
+    user = User.get_or_none(username=username)
+    if user is None:
+        return 0
+
+    total = (
+        Transaction
+        .select(fn.SUM(Transaction.amount).alias('daily_total'))
+        .where(
+            (Transaction.to_user == user) &
+            (Transaction.description.startswith('Daily'))
+        )
+        .scalar()
+    )
+
+    return int(total) if total is not None else 0
+
+
+def get_total_daily_amount() -> int:
+    total_all_daily = (
+            Transaction
+            .select(fn.SUM(Transaction.amount))
+            .where(Transaction.description.startswith('Daily'))
+            .scalar() or 0
+    )
+
+    return int(total_all_daily)
+
+
+def get_total_stats():
+    totals = (
+        Stats
+        .select(
+            fn.SUM(Stats.prizes).alias('prizes'),
+            fn.SUM(Stats.mine).alias('mine'),
+            fn.SUM(Stats.gamble).alias('gamble'),
+            fn.SUM(Stats.galton).alias('galton'),
+        )
+        .scalar(as_dict=True)
+    )
+    return {k: (v or 0) for k, v in totals.items()}
+
+
 def update_user_stats(user_or_name: str | User, stat_type: StatsType, increment: int = 1):
     if isinstance(user_or_name, str):
         user: User = User.get_or_create(username=user_or_name)[0]

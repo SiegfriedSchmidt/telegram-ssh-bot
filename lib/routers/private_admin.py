@@ -1,6 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
+from lib import database
 from lib.config_reader import config
 from lib.ledger import Ledger
 from lib.router_factories import admin_commands, ssh_session, general_commands
@@ -79,3 +80,17 @@ async def import_transactions_cmd(message: types.Message, ledger: Ledger):
 async def delete_pending_cmd(message: types.Message, ledger: Ledger):
     count = ledger.delete_pending_transactions()
     return await message.answer(f"Total deleted pending transactions: {count}")
+
+
+@router.message(Command("reset_daily"))
+async def reset_daily_cmd(message: types.Message, command: CommandObject):
+    args = get_args(command)
+    if len(args) != 1:
+        return await message.answer("Invalid amount or type of arguments.")
+
+    username = args[0]
+    if not database.is_user_exists(username):
+        return await message.answer(f"User {username} doesn't exist!")
+
+    database.reset_daily_prize_time_for_user(username)
+    return await message.answer(f"Daily prize time for user {username} has been reset!")

@@ -22,6 +22,7 @@ bot_general_commands = [
     BotCommand(command='mine_block_attempt', description='{nonce: required} attempt to mine by yourself'),
     BotCommand(command='explore_block', description='{height: required} explore block'),
     BotCommand(command='user_stats', description='{username: optional} get user stats'),
+    BotCommand(command='global_stats', description='get global stats'),
 ]
 
 bot_admin_commands = [

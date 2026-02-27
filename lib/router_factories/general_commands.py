@@ -283,7 +283,15 @@ def create_router():
             return await message.answer(f"No statistic for {username} found!")
 
         return await message.answer(
-            f"<b>{username} stats:</b>\nDaily prizes opened: {stats.prizes}\nGamble attempts: {stats.gamble}\nGalton attempts: {stats.galton}\nMine attempts: {stats.mine}",
+            f"<b>{username} stats:</b>\nDaily prizes opened: {stats.prizes}\nGamble attempts: {stats.gamble}\nGalton attempts: {stats.galton}\nMine attempts: {stats.mine}\nDaily reward amount: {database.get_daily_amount_for_user(username)}",
+            parse_mode='html'
+        )
+
+    @router.message(Command("global_stats"))
+    async def global_stats_cmd(message: types.Message):
+        totals = database.get_total_stats()
+        return await message.answer(
+            f"<b>Global stats:</b>\nDaily prizes opened: {totals["prizes"]}\nGamble attempts: {totals["gamble"]}\nGalton attempts: {totals["galton"]}\nMine attempts: {totals["mine"]}\nDaily reward amount: {database.get_total_daily_amount()}",
             parse_mode='html'
         )
 
