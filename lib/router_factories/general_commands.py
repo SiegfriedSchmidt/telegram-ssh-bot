@@ -10,7 +10,7 @@ from lib import database
 from lib.bot_commands import text_bot_general_commands, text_bot_admin_commands
 from lib.config_reader import config
 from lib.database import is_user_exists, available_mine_attempt
-from lib.ledger import Ledger
+from lib.ledger import Ledger, BlockNotMined
 from lib.api.gemini_api import gemini_api
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
@@ -233,10 +233,13 @@ def create_router():
         if not available_mine_attempt(username):
             return await message.answer("You already used your mine attempt, wait for the next one!")
 
-        block = ledger.mine_block(username)
-        if block is None:
-            return await message.answer("No pending transactions!")
+        try:
+            block = ledger.mine_block(username, int(args[0]))
+        except BlockNotMined as e:
+            return await message.answer(f"Block not mined! Block hash: {e.block_hash}. Wait for the next attempt!")
 
-        return await message.answer(f"Block {block.height} successfully mined by {block.miner}!")
+        return await message.answer(
+            f"Block {block.height} with nonce {block.nonce} successfully mined by {block.miner}! Block hash: {block.block_hash}."
+        )
 
     return router

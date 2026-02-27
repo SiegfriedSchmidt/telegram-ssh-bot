@@ -10,9 +10,31 @@ from peewee import prefetch
 from lib.database import db, Block, Transaction, User
 from lib.logger import ledger_logger
 
-GENESIS_BLOCK_REWARD = Decimal(1_000_000)
+GENESIS_BLOCK_REWARD = Decimal(1e9)
 EMPTY_HASH = "0" * 64
 mining_lock = Lock()
+
+
+class LedgerError(Exception):
+    pass
+
+
+class BlockchainBroken(LedgerError):
+    def __init__(self, height: int, reason: str) -> None:
+        self.height = height
+        self.reason = reason
+        super().__init__(f"BLOCKCHAIN BROKEN at height {self.height}! {reason}")
+
+
+class BlockNotMined(LedgerError):
+    def __init__(self, height: int, block_hash: str) -> None:
+        self.height = height
+        self.block_hash = block_hash
+        super().__init__(f"Block not mined at height {self.height}! {block_hash}")
+
+
+class BalanceError(LedgerError):
+    pass
 
 
 def compute_hash(data: dict) -> str:
@@ -57,6 +79,9 @@ class Ledger:
     def genesis_username(self, username: str):
         self.__genesis_username = username
 
+    def check_hash_difficulty(self, block_hash: str) -> bool:
+        return block_hash.startswith(self.difficulty)
+
     def init_genesis(self):
         if self.get_blocks_count() == 0:
             self.__mine_block(self.__genesis_username, GENESIS_BLOCK_REWARD, "Genesis block reward")
@@ -65,7 +90,7 @@ class Ledger:
     def __update_balance(self, from_username: str | None, to_username: str, amount: Decimal) -> None:
         if from_username:
             if from_username not in self.__balances or self.__balances[from_username] < amount:
-                raise ValueError("Negative balance detected!")
+                raise BalanceError("Negative balance detected!")
             self.__balances[from_username] -= amount
 
         if to_username not in self.__balances:
@@ -90,9 +115,10 @@ class Ledger:
                 self.init_genesis()
                 return
 
-            if blocks[0].miner != self.genesis_username:
-                raise ValueError(
-                    f"BLOCKCHAIN BROKEN! Genesis username mismatch! '{blocks[0].miner}' != '{self.genesis_username}'"
+            if blocks[0].miner.username != self.genesis_username:
+                raise BlockchainBroken(
+                    blocks[0].height,
+                    f"Genesis username mismatch! '{blocks[0].miner.username}' != '{self.genesis_username}'"
                 )
 
             prev_hash = EMPTY_HASH
@@ -102,20 +128,22 @@ class Ledger:
 
                 merkle_root = compute_merkle_root([tx.tx_hash for tx in txs])
                 if merkle_root != block.merkle_root:
-                    raise ValueError(
-                        f"BLOCKCHAIN BROKEN at height {block.height}! Transactions merkle root: {merkle_root}, block merkle root: {block.merkle_root}"
+                    raise BlockchainBroken(
+                        block.height, f"Transactions merkle root: {merkle_root}, block merkle root: {block.merkle_root}"
                     )
 
                 miner_username = miner_tx.to_user.username
                 if miner_username != block.miner.username:
-                    raise ValueError(
-                        f"BLOCKCHAIN BROKEN at height {block.height}! Transaction miner username: {miner_username}, block miner username: {block.miner.username}"
+                    raise BlockchainBroken(
+                        block.height,
+                        f"Transaction miner username: {miner_username}, block miner username: {block.miner.username}"
                     )
 
                 miner_reward = miner_tx.amount
                 if block.height != 0 and miner_reward != self.block_reward:
-                    raise ValueError(
-                        f"BLOCKCHAIN BROKEN at height {block.height}! Transaction miner reward: {miner_reward}, block miner reward: {self.block_reward}"
+                    raise BlockchainBroken(
+                        block.height,
+                        f"Transaction miner reward: {miner_reward}, block miner reward: {self.block_reward}"
                     )
 
                 block_data = {
@@ -129,13 +157,13 @@ class Ledger:
                 computed_hash = compute_hash(block_data)
 
                 if computed_hash != block.block_hash:
-                    raise ValueError(
-                        f"BLOCKCHAIN BROKEN at height {block.height}! Block hash: {block.block_hash}, computed hash: {computed_hash}"
+                    raise BlockchainBroken(
+                        block.height, f"Block hash: {block.block_hash}, computed hash: {computed_hash}"
                     )
 
-                if not computed_hash.startswith(self.difficulty):
-                    raise ValueError(
-                        f"BLOCKCHAIN BROKEN at height {block.height}! Computed hash: {computed_hash}, difficulty: {self.difficulty}"
+                if not self.check_hash_difficulty(computed_hash):
+                    raise BlockchainBroken(
+                        block.height, f"Computed hash: {computed_hash}, difficulty: {self.difficulty}"
                     )
 
                 self.__update_balance_transactions(txs)
@@ -147,29 +175,32 @@ class Ledger:
         self.__update_balance_transactions(self.get_pending_transactions(ascending=True))
         self.mine_block()
 
-    def mine_block(self, miner_username: str = None) -> Block | None:
+    def mine_block(self, miner_username: str = None, nonce: int = None) -> Block | None:
         if miner_username is None:
             miner_username = self.__genesis_username
 
         with mining_lock:
             pending_txs = self.get_pending_transactions(ascending=True)
 
-            if not pending_txs:
+            if not pending_txs and nonce is None:
                 return None
 
-            return self.__mine_block(miner_username, pending_txs=pending_txs)
+            return self.__mine_block(miner_username=miner_username, pending_txs=pending_txs, nonce=nonce)
 
     def __mine_block(self, miner_username: str, reward: Decimal = None, tx_description="Block reward",
-                     pending_txs: list[Transaction] = None) -> Block:
+                     pending_txs: list[Transaction] = None, nonce: int = None) -> Block:
         if reward is None:
             reward = self.block_reward
         if pending_txs is None:
             pending_txs = []
 
         with db.atomic():
-            pending_txs += [self.__record_transaction(None, miner_username, reward, tx_description)]  # add miner tx
+            miner_tx = self.__create_transaction(None, miner_username, reward, tx_description)
+            pending_txs += [miner_tx]
             merkle_root = compute_merkle_root([tx.tx_hash for tx in pending_txs])
-            block = self.__create_block(miner_username, merkle_root)
+
+            block = self.__create_block(miner_username, merkle_root, nonce)
+            self.__record_transaction(miner_tx)  # apply miner tx only if block successfully created
 
             for tx in pending_txs:
                 tx.block = block
@@ -180,7 +211,7 @@ class Ledger:
             )
             return block
 
-    def __create_block(self, miner_username: str, merkle_root: str) -> Block:
+    def __create_block(self, miner_username: str, merkle_root: str, nonce: int = None) -> Block:
         last_block = Block.select(Block.height, Block.block_hash).order_by(Block.height.desc()).first()
         if last_block is None:
             height = 0
@@ -197,55 +228,65 @@ class Ledger:
             "merkle_root": merkle_root,
             "prev_hash": prev_hash
         })
-        block_data["nonce"] = self.__mine_nonce(block_data)
+        block_data["nonce"] = self.__mine_nonce(block_data) if nonce is None else nonce
         block_data["block_hash"] = compute_hash(block_data)
+
+        if not self.check_hash_difficulty(block_data["block_hash"]):
+            raise BlockNotMined(height, block_data["block_hash"])
+
         block_data["miner"] = User.get_or_create(username=miner_username)[0]
-        block = Block.create(**block_data)
-        return block
+        return Block.create(**block_data)
 
     def __mine_nonce(self, block_data: dict) -> int:
         nonce = 0
         while True:
             block_data["nonce"] = nonce
             block_hash = compute_hash(block_data)
-            if block_hash.startswith(self.difficulty):
+            if self.check_hash_difficulty(block_hash):
                 break
             nonce += 1
         return nonce
 
-    def __record_transaction(self, from_username: str | None, to_username: str, amount: Decimal | str | float,
+    def __create_transaction(self, from_username: str | None, to_username: str, amount: Decimal | str | float,
                              description: str = None, timestamp: str = None) -> Transaction:
         amount = Decimal(int(amount))
 
         if amount <= 0:
-            raise ValueError("Amount must be positive")
+            raise BalanceError("Amount must be positive")
 
         if from_username and self.__balances.get(from_username, Decimal("0")) < amount:
-            raise ValueError("Insufficient balance")
+            raise BalanceError("Insufficient balance")
 
-        with db.atomic():
-            tx_data = dict()
-            tx_data.update({
-                "timestamp": datetime.now().isoformat() if timestamp is None else timestamp,
-                "from_user": from_username,
-                "to_user": to_username,
-                "amount": str(amount),
-                "description": description,
-            })
+        tx_data = dict()
+        tx_data.update({
+            "timestamp": datetime.now().isoformat() if timestamp is None else timestamp,
+            "from_user": from_username,
+            "to_user": to_username,
+            "amount": str(amount),
+            "description": description,
+        })
 
-            tx_data["tx_hash"] = compute_hash(tx_data)
-            tx_data["from_user"] = User.get_or_create(username=from_username)[0] if from_username else None
-            tx_data["to_user"] = User.get_or_create(username=to_username)[0]
-            tx = Transaction.create(**tx_data)
+        tx_data["tx_hash"] = compute_hash(tx_data)
+        tx_data["from_user"] = User.get_or_create(username=from_username)[0] if from_username else None
+        tx_data["to_user"] = User.get_or_create(username=to_username)[0]
+        return Transaction(**tx_data)
 
-            self.__update_balance(from_username, to_username, amount)
+    def __record_transaction(self, tx: Transaction):
+        tx.save()
 
-            ledger_logger.info(f"Transaction recorded {from_username} -> {to_username}: {amount}, {description}")
-            return tx
+        from_username = None if tx.from_user is None else tx.from_user.username
+        to_username = tx.to_user.username
+        amount = Decimal(tx.amount)
+        description = tx.description
 
-    def record_transaction(self, from_username: str, to_username: str, amount: Decimal | str | float,
-                           description: str = None) -> Transaction:
-        return self.__record_transaction(from_username, to_username, amount, description)
+        self.__update_balance(from_username, to_username, amount)
+        ledger_logger.info(f"Transaction recorded {from_username} -> {to_username}: {amount}, {description}")
+
+    def record_transaction(self, from_username: str | None, to_username: str, amount: Decimal | str | float,
+                           description: str = None, timestamp: str = None) -> Transaction:
+        tx = self.__create_transaction(from_username, to_username, amount, description, timestamp)
+        self.__record_transaction(tx)
+        return tx
 
     def record_deposit(self, from_username: str, amount: Decimal | str | float, description: str = None):
         self.record_transaction(from_username, self.__genesis_username, amount, description)
@@ -263,10 +304,11 @@ class Ledger:
         reader = csv.reader(StringIO(file.read().decode("utf-8")), delimiter=' ', quotechar='"')
         next(reader)
         count = 0
-        for row in reader:
-            if all(row):
-                count += 1
-                self.__record_transaction(*row)
+        with db.atomic():
+            for row in reader:
+                if all(row):
+                    count += 1
+                    self.record_transaction(*row)
 
         return count
 

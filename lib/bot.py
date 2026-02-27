@@ -14,7 +14,7 @@ from lib.bot_commands import set_bot_commands
 from lib.config_reader import config
 from lib.gambler import Gambler
 from lib.init import galton_folder_path
-from lib.ledger import Ledger
+from lib.ledger import Ledger, LedgerError
 from lib.routers import public_commands, errors, group_admin, group_general, private_admin
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
@@ -70,7 +70,7 @@ async def on_startup(bot: Bot, scheduler: AsyncIOScheduler, ledger: Ledger) -> N
     ledger.genesis_username = me.username
     try:
         ledger.load_and_verify_chain()
-    except ValueError as e:
+    except LedgerError as e:
         await notification(str(e), bot)
         await bot.session.close()
         raise
