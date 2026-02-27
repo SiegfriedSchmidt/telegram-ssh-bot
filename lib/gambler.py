@@ -3,7 +3,7 @@ import numpy as np
 from decimal import Decimal
 from aiogram import types
 from aiogram.types import FSInputFile
-from lib.database import update_user_stats
+from lib import database
 from lib.ledger import Ledger
 from lib import database
 from lib.models import GainType, StatsType
@@ -116,7 +116,7 @@ class Gambler:
         gain_type = self.determine_gain_type(dice_msg.dice.value)
         gain = int(gamble_multipliers[gain_type] * bet)
 
-        update_user_stats(username, StatsType.gamble)
+        database.update_user_stats(username, StatsType.gamble)
         self.ledger.record_deposit(username, bet, "bet")
         if gain:
             self.ledger.record_gain(username, gain, f"Gamble {gain_type.value}")
@@ -144,7 +144,7 @@ class Gambler:
         gain = int(multiplier * bet_per_ball)
         multiplier = round(multiplier / balls, 1)
 
-        update_user_stats(username, StatsType.galton)
+        database.update_user_stats(username, StatsType.galton)
         self.ledger.record_deposit(username, bet, "bet")
         if gain:
             self.ledger.record_gain(username, gain, f"Galton X{multiplier}")

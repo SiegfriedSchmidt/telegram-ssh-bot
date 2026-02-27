@@ -131,7 +131,7 @@ async def main():
 
     # init shared classes
     scheduler = AsyncIOScheduler()
-    ledger = Ledger()
+    ledger = Ledger(storage.mine_block_reward)
     gambler = Gambler(ledger)
 
     await dp.start_polling(

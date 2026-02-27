@@ -6,8 +6,8 @@ from decimal import Decimal
 from datetime import datetime
 from io import StringIO
 from typing import BinaryIO
-from lib.database import db, Block, Transaction, User, get_blocks_count, get_blocks, get_block_transactions, \
-    get_transactions_count, get_pending_transactions, get_transactions, delete_pending_transactions
+from lib import database
+from lib.database import db, User, Transaction, Block
 from lib.logger import ledger_logger
 
 GENESIS_BLOCK_REWARD = Decimal(1e9)
@@ -65,8 +65,8 @@ def compute_merkle_root(tx_hashes: list[str]) -> str:
 
 
 class Ledger:
-    def __init__(self, block_reward=Decimal(1000), difficulty=2):
-        self.block_reward = block_reward
+    def __init__(self, block_reward: int | Decimal, difficulty=2):
+        self.block_reward = Decimal(block_reward)
         self.difficulty = "0" * difficulty
         self.__genesis_username = ""
         self.__balances: dict[str, Decimal] = dict()
@@ -83,7 +83,7 @@ class Ledger:
         return block_hash.startswith(self.difficulty)
 
     def init_genesis(self):
-        if get_blocks_count() == 0:
+        if database.get_blocks_count() == 0:
             self.__mine_block(self.__genesis_username, GENESIS_BLOCK_REWARD, "Genesis block reward")
             ledger_logger.info("Genesis block created!")
 
@@ -118,7 +118,7 @@ class Ledger:
         self.__balances.clear()
 
         with db.atomic():
-            blocks = get_blocks(ascending=True)
+            blocks = database.get_blocks(ascending=True)
             if not blocks:
                 self.init_genesis()
                 return
@@ -131,7 +131,7 @@ class Ledger:
 
             prev_hash = EMPTY_HASH
             for block in blocks:
-                txs = get_block_transactions(block, ascending=True)
+                txs = database.get_block_transactions(block, ascending=True)
                 miner_tx = txs[-1]  # The last transaction in block is miner reward transaction
 
                 merkle_root = compute_merkle_root([tx.tx_hash for tx in txs])
@@ -147,12 +147,13 @@ class Ledger:
                         f"Transaction miner username: {miner_username}, block miner username: {block.miner.username}"
                     )
 
-                miner_reward = miner_tx.amount
-                if block.height != 0 and miner_reward != self.block_reward:
-                    raise BlockchainBroken(
-                        block.height,
-                        f"Transaction miner reward: {miner_reward}, block miner reward: {self.block_reward}"
-                    )
+                # MINER REWARD CHECK
+                # miner_reward = miner_tx.amount
+                # if block.height != 0 and miner_reward != self.block_reward:
+                #     raise BlockchainBroken(
+                #         block.height,
+                #         f"Transaction miner reward: {miner_reward}, block miner reward: {self.block_reward}"
+                #     )
 
                 block_data = {
                     "height": block.height,
@@ -178,9 +179,9 @@ class Ledger:
                 prev_hash = computed_hash
 
         ledger_logger.info(
-            f"Blockchain verified! {get_blocks_count()} blocks loaded. {get_transactions_count()} transactions loaded. Users with balance: {len(self.__balances)}"
+            f"Blockchain verified! {database.get_blocks_count()} blocks loaded. {database.get_transactions_count()} transactions loaded. Users with balance: {len(self.__balances)}"
         )
-        self.__update_balance_transactions(get_pending_transactions(ascending=True))
+        self.__update_balance_transactions(database.get_pending_transactions(ascending=True))
         self.mine_block()
 
     def mine_block(self, miner_username: str = None, nonce: int = None) -> Block | None:
@@ -188,7 +189,7 @@ class Ledger:
             miner_username = self.__genesis_username
 
         with mining_lock:
-            pending_txs = get_pending_transactions(ascending=True)
+            pending_txs = database.get_pending_transactions(ascending=True)
 
             if not pending_txs and nonce is None:
                 return None
@@ -309,8 +310,8 @@ class Ledger:
         return sorted(list(self.__balances.items()), key=lambda item: item[1], reverse=True)
 
     def delete_pending_transactions(self) -> int:
-        self.__revert_balance_transactions(get_pending_transactions(ascending=False))
-        return delete_pending_transactions()
+        self.__revert_balance_transactions(database.get_pending_transactions(ascending=False))
+        return database.delete_pending_transactions()
 
     def import_transactions_csv(self, file: BinaryIO) -> int:
         reader = csv.reader(StringIO(file.read().decode("utf-8")), delimiter=' ', quotechar='"')
@@ -329,7 +330,7 @@ class Ledger:
         file = StringIO()
         writer = csv.writer(file, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(["from_user", "to_user", "amount", "description", "timestamp"])
-        for tx in get_transactions(ascending=True):
+        for tx in database.get_transactions(ascending=True):
             writer.writerow([
                 tx.from_user.username if tx.from_user else None,
                 tx.to_user.username,

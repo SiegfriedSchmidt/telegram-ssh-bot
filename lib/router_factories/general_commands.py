@@ -9,8 +9,6 @@ from aiogram.utils.chat_action import ChatActionMiddleware
 from lib import database
 from lib.bot_commands import text_bot_general_commands, text_bot_admin_commands
 from lib.config_reader import config
-from lib.database import is_user_exists, available_mine_attempt, get_transactions, get_transactions_count, get_blocks, \
-    get_blocks_count, get_block, get_block_transactions, get_user_stats
 from lib.ledger import Ledger, BlockNotMined
 from lib.api.gemini_api import gemini_api
 from lib.api.joke_api import get_joke
@@ -18,6 +16,7 @@ from lib.api.meme_api import get_meme
 from lib.api.geoip_api import geoip
 from lib.gambler import Gambler
 from lib.states.confirmation_state import ConfirmationState
+from lib.storage import storage
 from lib.utils.utils import get_args, large_respond
 
 
@@ -157,7 +156,7 @@ def create_router():
 
         me = await message.bot.me()
         is_user_me = to_user == me.username
-        if is_user_me or not is_user_exists(to_user):
+        if is_user_me or not database.is_user_exists(to_user):
             await state.set_state(ConfirmationState.transfer_confirmation)
             await state.set_data({"to_user": to_user, "amount": amount})
             return await message.answer(
@@ -181,15 +180,15 @@ def create_router():
 
     @router.message(Command("daily_prize"))
     async def daily_prize_cmd(message: types.Message, gambler: Gambler):
-        if database.available_daily_prize(message.from_user.username):
+        if database.is_available_daily_prize(message.from_user.username):
             return await gambler.daily_prize(message)
         else:
             return await message.answer('Your daily prize already obtained! Wait for the next day!')
 
     @router.message(Command("ledger"))
     async def ledger_cmd(message: types.Message):
-        txs = get_transactions(limit=50)
-        txs_count = get_transactions_count()
+        txs = database.get_transactions(limit=50)
+        txs_count = database.get_transactions_count()
         text_txs = '\n'.join([
             f'{tx.number}. {tx.from_user} -> {tx.to_user}, {tx.amount}, {tx.description} - {"pending" if tx.block is None else f"block {tx.block.height}"}'
             for tx in txs
@@ -213,8 +212,8 @@ def create_router():
 
     @router.message(Command("blocks"))
     async def blocks_cmd(message: types.Message):
-        blocks = get_blocks(limit=100)
-        blocks_count = get_blocks_count()
+        blocks = database.get_blocks(limit=100)
+        blocks_count = database.get_blocks_count()
         text_blocks = '\n'.join([f'Block: {b.height}, miner: {b.miner}, hash: {b.block_hash}' for b in blocks])
         return await message.answer(f"<b>Blocks list ({blocks_count}):</b>\n{text_blocks}", parse_mode='html')
 
@@ -233,16 +232,20 @@ def create_router():
             return await message.answer("Invalid number or type of arguments!")
 
         username = message.from_user.username
-        if not available_mine_attempt(username):
-            return await message.answer("You already used your mine attempt, wait for the next one!")
+        if seconds := database.is_unavailable_mine_attempt(username):
+            return await message.answer(f"You already used your mine attempt. Next attempt in {seconds} seconds.")
 
         try:
             block = ledger.mine_block(username, int(args[0]))
         except BlockNotMined as e:
-            return await message.answer(f"Block not mined! Block hash: {e.block_hash}. Wait for the next attempt!")
+            return await message.answer(
+                f"<b>FAILURE!</b>\nBlock hash: {e.block_hash}. Next attempt in {storage.mine_block_user_timeout} seconds!",
+                parse_mode='html'
+            )
 
         return await message.answer(
-            f"Block {block.height} with nonce {block.nonce} successfully mined by {block.miner}! Block hash: {block.block_hash}."
+            f"<b>SUCCESS!</b>\nBlock {block.height} with nonce {block.nonce} successfully mined by {block.miner}! Block hash: {block.block_hash}.",
+            parse_mode='html'
         )
 
     @router.message(Command("explore_block"))
@@ -251,11 +254,11 @@ def create_router():
         if len(args) != 1 or not args[0].isdigit():
             return await message.answer("Invalid number or type of arguments!")
 
-        block = get_block(int(args[0]))
+        block = database.get_block(int(args[0]))
         if block is None:
             return await message.answer("Block not found!")
 
-        txs = get_block_transactions(block, limit=50, ascending=False)
+        txs = database.get_block_transactions(block, limit=50, ascending=False)
 
         text_block = f"Block {block.height}:\nTimestamp: {block.timestamp}\nMiner: {block.miner}\nNonce: {block.nonce}\nMerkle root: {block.merkle_root}\nPrevious hash: {block.prev_hash}\nHash: {block.block_hash}\nTransactions: {len(txs)}"
         text_txs = '\n'.join([
@@ -275,7 +278,7 @@ def create_router():
         else:
             username = message.from_user.username
 
-        stats = get_user_stats(username)
+        stats = database.get_user_stats(username)
         if stats is None:
             return await message.answer(f"No statistic for {username} found!")
 

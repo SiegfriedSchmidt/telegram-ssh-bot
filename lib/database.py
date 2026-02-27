@@ -118,7 +118,7 @@ def update_user_stats(user_or_name: str | User, stat_type: StatsType, increment:
     stats.save()
 
 
-def available_daily_prize(username: str) -> bool:
+def is_available_daily_prize(username: str) -> bool:
     user = User.get_or_create(username=username)[0]
     if not used_today(user.daily_prize_time, config.day_start_time):
         user.daily_prize_time = datetime.now()
@@ -128,16 +128,17 @@ def available_daily_prize(username: str) -> bool:
     return False
 
 
-def available_mine_attempt(username: str) -> bool:
+def is_unavailable_mine_attempt(username: str) -> int:
     user = User.get_or_create(username=username)[0]
     now = datetime.now()
-    delta = timedelta(seconds=storage.mine_block_interval_seconds) - (now - user.mine_attempt_time)
-    if delta.total_seconds() < 0:
+    delta = timedelta(seconds=storage.mine_block_user_timeout) - (now - user.mine_attempt_time)
+    seconds_left = int(delta.total_seconds())
+    if seconds_left <= 0:
         user.mine_attempt_time = now
         update_user_stats(user, StatsType.mine)
         user.save()
-        return True
-    return False
+        return 0
+    return seconds_left
 
 
 def get_user_transactions(username: str, limit: Optional[int] = None) -> list[Transaction]:

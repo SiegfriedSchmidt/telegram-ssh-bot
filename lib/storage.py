@@ -11,6 +11,8 @@ from lib.init import persistent_file_path
 class PersistentData:
     notification_enabled = True
     mine_block_interval_seconds = 600
+    mine_block_user_timeout = 420
+    mine_block_reward = 2000
     startup_docker_checks = True
     # admin_ids: List[int] = field(default_factory=list)
 
