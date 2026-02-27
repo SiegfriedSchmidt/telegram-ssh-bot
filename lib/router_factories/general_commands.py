@@ -268,7 +268,7 @@ def create_router():
         return await message.answer(f"{text_block}\n{text_txs}")
 
     @router.message(Command("user_stats"))
-    async def user_stats_cmd(message: types.Message, command: CommandObject):
+    async def user_stats_cmd(message: types.Message, command: CommandObject, ledger: Ledger):
         args = get_args(command)
 
         if message.reply_to_message:
@@ -283,7 +283,7 @@ def create_router():
             return await message.answer(f"No statistic for {username} found!")
 
         return await message.answer(
-            f"<b>{username} stats:</b>\nDaily prizes opened: {stats.prizes}\nGamble attempts: {stats.gamble}\nGalton attempts: {stats.galton}\nMine attempts: {stats.mine}\nDaily reward amount: {database.get_daily_amount_for_user(username)}",
+            f"<b>{username} stats:</b>\nDaily prizes opened: {stats.prizes}\nGamble attempts: {stats.gamble}\nGalton attempts: {stats.galton}\nMine attempts: {stats.mine}\nDaily reward amount: {database.get_daily_amount_for_user(username)}\nMax balance recorded: {ledger.get_user_max_balance(username)}",
             parse_mode='html'
         )
 
