@@ -81,15 +81,18 @@ async def on_startup(bot: Bot, scheduler: AsyncIOScheduler, ledger: Ledger) -> N
     scheduler.add_job(ledger.mine_block, IntervalTrigger(seconds=storage.mine_block_interval_seconds))
     scheduler.start()
 
-    # check nextcloud
-    containers_json = ssh_manager[config.main_host.get_secret_value()].get_running_containers()
-    nextcloud_running = False
-    for c in containers_json:
-        if c["Image"] == 'nextcloud':
-            nextcloud_running = True
-    start_message = "Bot started." + (
-        " Nextcloud is NOT running. Launch it via '/up nextcloud'." if not nextcloud_running else ''
-    )
+    # start message
+    start_message = "Bot started."
+
+    # startup docker checks
+    if storage.startup_docker_checks:
+        containers_json = ssh_manager[config.main_host.get_secret_value()].get_running_containers()
+        nextcloud_running = False
+        for c in containers_json:
+            if c["Image"] == 'nextcloud':
+                nextcloud_running = True
+        start_message += '' if nextcloud_running else " Nextcloud is NOT running. Launch it via '/up nextcloud'."
+
     await notification(start_message, bot)
 
 

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 from lib.config_reader import config
 from lib.logger import peewee_logger
 from lib.init import database_file_path
@@ -97,3 +98,67 @@ def available_mine_attempt(username: str) -> bool:
         user.save()
         return True
     return False
+
+
+def get_user_transactions(username: str, limit: Optional[int] = None) -> list[Transaction]:
+    return list(
+        Transaction
+        .select()
+        .where((Transaction.from_user.username == username) | (Transaction.to_user.username == username))
+        .order_by(Transaction.number.desc())
+        .limit(limit)
+    )
+
+
+def get_transactions(limit: Optional[int] = None, ascending=False) -> list[Transaction]:
+    transactions = (
+        Transaction
+        .select()
+        .order_by(Transaction.number.asc() if ascending else Transaction.number.desc())
+        .limit(limit)
+    )
+    users = User.select()
+    return prefetch(transactions, users)
+
+
+def get_pending_transactions(limit: Optional[int] = None, ascending=False) -> list[Transaction]:
+    return list(
+        Transaction
+        .select()
+        .where(Transaction.block.is_null())
+        .order_by(Transaction.number.asc() if ascending else Transaction.number.desc())
+        .limit(limit)
+    )
+
+
+def delete_pending_transactions() -> int:
+    return Transaction.delete().where(Transaction.block.is_null()).execute()
+
+
+def get_block_transactions(block: Block, limit: Optional[int] = None, ascending=False) -> list[Transaction]:
+    return list(
+        block.transactions.
+        order_by(Transaction.number.asc() if ascending else Transaction.number.desc()).
+        limit(limit)
+    )
+
+
+def get_block(height: int) -> Block | None:
+    return Block.get_or_none(height=height)
+
+
+def get_transactions_count() -> int:
+    return Transaction.select().count()
+
+
+def get_blocks(limit: Optional[int] = None, ascending=False) -> list[Block]:
+    return list(
+        Block
+        .select()
+        .order_by(Block.height.asc() if ascending else Block.height.desc())
+        .limit(limit)
+    )
+
+
+def get_blocks_count() -> int:
+    return Block.select().count()

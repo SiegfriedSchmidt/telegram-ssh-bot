@@ -11,6 +11,7 @@ from lib.init import persistent_file_path
 class PersistentData:
     notification_enabled = True
     mine_block_interval_seconds = 600
+    startup_docker_checks = True
     # admin_ids: List[int] = field(default_factory=list)
 
 
@@ -83,7 +84,7 @@ class Storage(PersistentData):
 storage = Storage(persistent_file_path)
 
 if __name__ == '__main__':
-    storage.notification_enabled = False
+    storage.startup_docker_checks = False
     # storage.user_count += 1
     # storage.last_user = "Alice"
     # storage.admin_ids.append(123456)

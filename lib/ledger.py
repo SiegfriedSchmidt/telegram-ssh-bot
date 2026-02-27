@@ -5,9 +5,9 @@ from threading import Lock
 from decimal import Decimal
 from datetime import datetime
 from io import StringIO
-from typing import Optional, BinaryIO
-from peewee import prefetch
-from lib.database import db, Block, Transaction, User
+from typing import BinaryIO
+from lib.database import db, Block, Transaction, User, get_blocks_count, get_blocks, get_block_transactions, \
+    get_transactions_count, get_pending_transactions, get_transactions, delete_pending_transactions
 from lib.logger import ledger_logger
 
 GENESIS_BLOCK_REWARD = Decimal(1e9)
@@ -83,7 +83,7 @@ class Ledger:
         return block_hash.startswith(self.difficulty)
 
     def init_genesis(self):
-        if self.get_blocks_count() == 0:
+        if get_blocks_count() == 0:
             self.__mine_block(self.__genesis_username, GENESIS_BLOCK_REWARD, "Genesis block reward")
             ledger_logger.info("Genesis block created!")
 
@@ -106,11 +106,19 @@ class Ledger:
                 tx.amount
             )
 
+    def __revert_balance_transactions(self, txs: list[Transaction]) -> None:
+        for tx in txs:
+            self.__update_balance(
+                tx.to_user.username,
+                tx.from_user.username if tx.from_user else None,
+                tx.amount
+            )
+
     def load_and_verify_chain(self):
         self.__balances.clear()
 
         with db.atomic():
-            blocks = self.get_blocks(ascending=True)
+            blocks = get_blocks(ascending=True)
             if not blocks:
                 self.init_genesis()
                 return
@@ -123,7 +131,7 @@ class Ledger:
 
             prev_hash = EMPTY_HASH
             for block in blocks:
-                txs: list[Transaction] = list(block.transactions.order_by(Transaction.number.asc()))
+                txs = get_block_transactions(block, ascending=True)
                 miner_tx = txs[-1]  # The last transaction in block is miner reward transaction
 
                 merkle_root = compute_merkle_root([tx.tx_hash for tx in txs])
@@ -170,9 +178,9 @@ class Ledger:
                 prev_hash = computed_hash
 
         ledger_logger.info(
-            f"Blockchain verified! {self.get_blocks_count()} blocks loaded. {self.get_transactions_count()} transactions loaded. Users with balance: {len(self.__balances)}"
+            f"Blockchain verified! {get_blocks_count()} blocks loaded. {get_transactions_count()} transactions loaded. Users with balance: {len(self.__balances)}"
         )
-        self.__update_balance_transactions(self.get_pending_transactions(ascending=True))
+        self.__update_balance_transactions(get_pending_transactions(ascending=True))
         self.mine_block()
 
     def mine_block(self, miner_username: str = None, nonce: int = None) -> Block | None:
@@ -180,7 +188,7 @@ class Ledger:
             miner_username = self.__genesis_username
 
         with mining_lock:
-            pending_txs = self.get_pending_transactions(ascending=True)
+            pending_txs = get_pending_transactions(ascending=True)
 
             if not pending_txs and nonce is None:
                 return None
@@ -300,6 +308,10 @@ class Ledger:
     def get_all_balances(self):
         return sorted(list(self.__balances.items()), key=lambda item: item[1], reverse=True)
 
+    def delete_pending_transactions(self) -> int:
+        self.__revert_balance_transactions(get_pending_transactions(ascending=False))
+        return delete_pending_transactions()
+
     def import_transactions_csv(self, file: BinaryIO) -> int:
         reader = csv.reader(StringIO(file.read().decode("utf-8")), delimiter=' ', quotechar='"')
         next(reader)
@@ -312,11 +324,12 @@ class Ledger:
 
         return count
 
-    def export_transactions_csv(self) -> str:
+    @staticmethod
+    def export_transactions_csv() -> str:
         file = StringIO()
         writer = csv.writer(file, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(["from_user", "to_user", "amount", "description", "timestamp"])
-        for tx in self.get_transactions(ascending=True):
+        for tx in get_transactions(ascending=True):
             writer.writerow([
                 tx.from_user.username if tx.from_user else None,
                 tx.to_user.username,
@@ -326,51 +339,3 @@ class Ledger:
             ])
         file.name = "transactions.csv"
         return file.getvalue()
-
-    @staticmethod
-    def get_user_transactions(username: str, limit: Optional[int] = None) -> list[Transaction]:
-        return list(
-            Transaction
-            .select()
-            .where((Transaction.from_user.username == username) | (Transaction.to_user.username == username))
-            .order_by(Transaction.number.desc())
-            .limit(limit)
-        )
-
-    @staticmethod
-    def get_transactions(limit: Optional[int] = None, ascending=False) -> list[Transaction]:
-        transactions = (
-            Transaction
-            .select()
-            .order_by(Transaction.number.asc() if ascending else Transaction.number.desc())
-            .limit(limit)
-        )
-        users = User.select()
-        return prefetch(transactions, users)
-
-    @staticmethod
-    def get_pending_transactions(limit: Optional[int] = None, ascending=False) -> list[Transaction]:
-        return list(
-            Transaction
-            .select()
-            .where(Transaction.block.is_null())
-            .order_by(Transaction.number.asc() if ascending else Transaction.number.desc())
-            .limit(limit)
-        )
-
-    @staticmethod
-    def get_transactions_count() -> int:
-        return Transaction.select().count()
-
-    @staticmethod
-    def get_blocks(limit: Optional[int] = None, ascending=False) -> list[Block]:
-        return list(
-            Block
-            .select()
-            .order_by(Block.height.asc() if ascending else Block.height.desc())
-            .limit(limit)
-        )
-
-    @staticmethod
-    def get_blocks_count() -> int:
-        return Block.select().count()

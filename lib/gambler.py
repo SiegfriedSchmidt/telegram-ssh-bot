@@ -134,13 +134,14 @@ class Gambler:
             return await message.reply("Bet per ball should be greater than 100!")
 
         username = message.from_user.username
-        self.ledger.record_deposit(username, bet, "bet")
         wait_msg = await message.reply("Waiting for simulation results...")
 
         physics_simulation = PhysicsSimulation(balls)
         multiplier, filename, duration = await run_in_thread(physics_simulation.render)
         gain = int(multiplier * bet_per_ball)
         multiplier = round(multiplier / balls, 1)
+
+        self.ledger.record_deposit(username, bet, "bet")
         if gain:
             self.ledger.record_gain(username, gain, f"Galton X{multiplier}")
 

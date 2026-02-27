@@ -9,7 +9,8 @@ from aiogram.utils.chat_action import ChatActionMiddleware
 from lib import database
 from lib.bot_commands import text_bot_general_commands, text_bot_admin_commands
 from lib.config_reader import config
-from lib.database import is_user_exists, available_mine_attempt
+from lib.database import is_user_exists, available_mine_attempt, get_transactions, get_transactions_count, get_blocks, \
+    get_blocks_count, get_block, get_block_transactions
 from lib.ledger import Ledger, BlockNotMined
 from lib.api.gemini_api import gemini_api
 from lib.api.joke_api import get_joke
@@ -186,9 +187,9 @@ def create_router():
             return await message.answer('Your daily prize already obtained! Wait for the next day!')
 
     @router.message(Command("ledger"))
-    async def ledger_cmd(message: types.Message, ledger: Ledger):
-        txs = ledger.get_transactions(limit=50)
-        txs_count = ledger.get_transactions_count()
+    async def ledger_cmd(message: types.Message):
+        txs = get_transactions(limit=50)
+        txs_count = get_transactions_count()
         text_txs = '\n'.join([
             f'{tx.number}. {tx.from_user} -> {tx.to_user}, {tx.amount}, {tx.description} - {"pending" if tx.block is None else f"block {tx.block.height}"}'
             for tx in txs
@@ -209,9 +210,9 @@ def create_router():
         return await message.answer_document(file)
 
     @router.message(Command("blocks"))
-    async def blocks_cmd(message: types.Message, ledger: Ledger):
-        blocks = ledger.get_blocks(limit=100)
-        blocks_count = ledger.get_blocks_count()
+    async def blocks_cmd(message: types.Message):
+        blocks = get_blocks(limit=100)
+        blocks_count = get_blocks_count()
         text_blocks = '\n'.join([f'Block: {b.height}, miner: {b.miner}, hash: {b.block_hash}' for b in blocks])
         return await message.answer(f"<b>Blocks list ({blocks_count}):</b>\n{text_blocks}", parse_mode='html')
 
@@ -241,5 +242,24 @@ def create_router():
         return await message.answer(
             f"Block {block.height} with nonce {block.nonce} successfully mined by {block.miner}! Block hash: {block.block_hash}."
         )
+
+    @router.message(Command("explore_block"))
+    async def explore_block_cmd(message: types.Message, command: CommandObject):
+        args = get_args(command)
+        if len(args) != 1 or not args[0].isdigit():
+            return await message.answer("Invalid number or type of arguments!")
+
+        block = get_block(int(args[0]))
+        if block is None:
+            return await message.answer("Block not found!")
+
+        txs = get_block_transactions(block, limit=50, ascending=False)
+
+        text_block = f"Block {block.height}:\nTimestamp: {block.timestamp}\nMiner: {block.miner}\nNonce: {block.nonce}\nMerkle root: {block.merkle_root}\nPrevious hash: {block.prev_hash}\nHash: {block.block_hash}\nTransactions: {len(txs)}"
+        text_txs = '\n'.join([
+            f"{tx.number}. {tx.from_user} -> {tx.to_user}, {tx.amount}, {tx.description}" for tx in txs
+        ])
+
+        return await message.answer(f"{text_block}\n{text_txs}")
 
     return router

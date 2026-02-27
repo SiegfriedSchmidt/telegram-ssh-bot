@@ -73,3 +73,9 @@ async def import_transactions_cmd(message: types.Message, ledger: Ledger):
     downloaded_file = await message.bot.download_file(file.file_path)
     count = ledger.import_transactions_csv(downloaded_file)
     return await message.answer(f"Total imported transactions: {count}")
+
+
+@router.message(Command("delete_pending"))
+async def delete_pending_cmd(message: types.Message, ledger: Ledger):
+    count = ledger.delete_pending_transactions()
+    return await message.answer(f"Total deleted pending transactions: {count}")
