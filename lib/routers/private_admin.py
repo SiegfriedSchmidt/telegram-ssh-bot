@@ -1,12 +1,14 @@
 from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
+from dataclasses import fields
+from typing import get_type_hints
 from lib import database
 from lib.config_reader import config
 from lib.ledger import Ledger
 from lib.router_factories import admin_commands, ssh_session, general_commands
 from lib.states.confirmation_state import ConfirmationState
-from lib.storage import storage
+from lib.storage import storage, PersistentData
 from lib.utils.utils import get_args
 
 router = Router()
@@ -23,10 +25,60 @@ router.include_routers(
 )
 
 
-@router.message(Command("notifications"))
-async def notifications_cmd(message: types.Message):
-    storage.notification_enabled = not storage.notification_enabled
-    await message.answer(f'Notifications: {storage.notification_enabled}')
+@router.message(Command("config"))
+async def cmd_config(message: types.Message, command: CommandObject):
+    args = get_args(command)
+    if len(args) != 2:
+        current = {
+            f.name: getattr(storage, f.name) for f in fields(PersistentData)
+        }
+        lines = ["Current configuration:"]
+        for k, v in sorted(current.items()):
+            lines.append(f"  {k:<32} = {v}")
+        lines.append("")
+        lines.append("Usage: /config <field> <value>")
+        return await message.answer(f"```{'\n'.join(lines)}```", parse_mode='MarkdownV2')
+
+    field_name = args[0]
+    value_str = args[1]
+
+    if not hasattr(storage, field_name):
+        return await message.answer(f"Unknown setting: {field_name}")
+
+    # Get expected type from type hints
+    hints = get_type_hints(PersistentData)
+    expected_type = hints.get(field_name)
+
+    if expected_type is None:
+        return await message.answer(f"Cannot determine type for field {field_name}")
+
+    try:
+        # Convert string -> correct type
+        if expected_type is bool:
+            value = value_str.lower() in {'true', '1', 'yes', 'on', 't', 'enable', 'enabled'}
+        elif expected_type is int:
+            value = int(value_str)
+        elif expected_type is float:
+            value = float(value_str)
+        elif expected_type is str:
+            value = value_str
+        else:
+            return await message.answer(f"Type {expected_type.__name__} not supported yet for {field_name}")
+
+        old_value = getattr(storage, field_name)
+        setattr(storage, field_name, value)
+
+        return await message.answer(
+            f"```{field_name} updated\n"
+            f"  Old: {old_value}\n"
+            f"  New: {value}\n"
+            f"  Saved to: {storage.filename}```",
+            parse_mode='MarkdownV2'
+        )
+    except ValueError as e:
+        return await message.answer(f"Cannot convert '{value_str}' to {expected_type.__name__}:\n{e}")
+    except Exception as e:
+        return await message.answer(f"Error while updating: {type(e).__name__}: {e}")
 
 
 @router.message(Command("send"))

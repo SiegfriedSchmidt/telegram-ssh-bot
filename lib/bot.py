@@ -28,7 +28,7 @@ nest_asyncio.apply()
 
 async def notification(message: str, bot: Bot):
     main_logger.info(message)
-    if storage.notification_enabled:
+    if storage.notifications_enabled:
         await bot.send_message(config.main_group_id, message, parse_mode=None)
 
 

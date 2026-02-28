@@ -3,17 +3,17 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Set, get_origin
 from datetime import datetime
-
 from lib.init import persistent_file_path
 
 
 @dataclass
 class PersistentData:
-    notification_enabled = True
-    mine_block_interval_seconds = 600
-    mine_block_user_timeout = 420
-    mine_block_reward = 2000
-    startup_docker_checks = True
+    notifications_enabled: bool = True
+    startup_docker_checks: bool = True
+    mine_block_interval_seconds: int = 600
+    mine_block_reward: int = 2000
+    mine_block_user_timeout: int = 300
+    mine_block_user_attempts: int = 16
     # admin_ids: List[int] = field(default_factory=list)
 
 

@@ -214,7 +214,9 @@ def create_router():
     async def blocks_cmd(message: types.Message):
         blocks = database.get_blocks(limit=100)
         blocks_count = database.get_blocks_count()
-        text_blocks = '\n'.join([f'Block: {b.height}, miner: {b.miner}, hash: {b.block_hash}' for b in blocks])
+        text_blocks = '\n'.join(
+            [f'Block: {b.height}, miner: {b.miner}, nonce: {b.nonce}, hash: {b.block_hash[:16]}...' for b in blocks]
+        )
         return await message.answer(f"<b>Blocks list ({blocks_count}):</b>\n{text_blocks}", parse_mode='html')
 
     @router.message(Command("mine_block"))
@@ -235,16 +237,22 @@ def create_router():
         if seconds := database.is_unavailable_mine_attempt(username):
             return await message.answer(f"You already used your mine attempt. Next attempt in {seconds} seconds.")
 
-        try:
-            block = ledger.mine_block(username, int(args[0]))
-        except BlockNotMined as e:
-            return await message.answer(
-                f"<b>FAILURE!</b>\nBlock hash: {e.block_hash}. Next attempt in {storage.mine_block_user_timeout} seconds!",
-                parse_mode='html'
-            )
+        nonce = int(args[0])
+        hashes = []
+        for i in range(storage.mine_block_user_attempts):
+            try:
+                block = ledger.mine_block(username, nonce)
+                return await message.answer_animation(
+                    "https://media1.tenor.com/m/9qZhM0uswAYAAAAd/bully-maguire-dance.gif",
+                    caption=f"<b>SUCCESS! REWARD: {storage.mine_block_reward}!</b>\nBlock <b>{block.height}</b> with nonce <b>{block.nonce}</b> mined by <b>{block.miner}</b>!\nBlock hash: <b>{block.block_hash[:16]}...</b>.",
+                    parse_mode='html'
+                )
+            except BlockNotMined as e:
+                hashes.append(e.block_hash[:16] + "...")
 
+        hashes_text = '\n'.join(hashes)
         return await message.answer(
-            f"<b>SUCCESS!</b>\nBlock {block.height} with nonce {block.nonce} successfully mined by {block.miner}! Block hash: {block.block_hash}.",
+            f"<b>FAILURE!</b>\n{hashes_text}\nNext attempt in {storage.mine_block_user_timeout} seconds!",
             parse_mode='html'
         )
 

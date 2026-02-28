@@ -3,7 +3,6 @@ import numpy as np
 from decimal import Decimal
 from aiogram import types
 from aiogram.types import FSInputFile
-from lib import database
 from lib.ledger import Ledger
 from lib import database
 from lib.models import GainType, StatsType
