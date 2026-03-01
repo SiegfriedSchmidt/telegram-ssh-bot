@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from datetime import datetime, time, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -69,6 +70,15 @@ def used_today(last_used: datetime, day_start_time: str) -> bool:
     day_end = day_start + timedelta(days=1)
 
     return day_start <= last_used < day_end
+
+
+def is_valid_mac_address(mac: str) -> bool:
+    patterns = [
+        r'^[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}$',
+        r'^[0-9A-Fa-f]{12}$',
+        r'^[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}$',
+    ]
+    return any(re.match(pattern, mac) for pattern in patterns)
 
 
 async def run_in_thread(func, *args):

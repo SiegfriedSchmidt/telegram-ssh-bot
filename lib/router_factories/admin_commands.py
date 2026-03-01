@@ -21,7 +21,8 @@ from lib.ssh_manager import ssh_manager
 from lib.states.confirmation_state import ConfirmationState
 from lib.states.ssh_session_state import SSHSessionState
 from lib.states.switch_state import SwitchState
-from lib.utils.utils import get_args, large_respond, run_in_thread, get_dir_size, clear_dir_contents, remove_file
+from lib.utils.utils import get_args, large_respond, run_in_thread, get_dir_size, clear_dir_contents, remove_file, \
+    is_valid_mac_address
 
 
 def create_router():
@@ -186,12 +187,12 @@ def create_router():
     @router.message(Command("openconnect"))
     async def openconnect_cmd(message: types.Message, command: CommandObject, user: User):
         args = get_args(command)
-        if len(args) == 0 or len(args) > 1 or args[0] not in ['status', 'restart', 'stop', 'start']:
+        if len(args) != 1 or args[0] not in ['status', 'restart', 'stop', 'start']:
             return await message.answer('invalid syntax, openconnect status|restart|stop|start')
 
-        result, error = ssh_manager[user.host].openconnect(command.args)
+        result, error = ssh_manager[user.host].openconnect(args[0])
         if not result:
-            return await message.answer(error)
+            return await large_respond(message, error)
         return await large_respond(message, result)
 
     @router.message(Command("access"))
@@ -318,5 +319,16 @@ def create_router():
             return await message.answer(str(e), reply_markup=ReplyKeyboardRemove())
 
         return await message.answer(f'Host has been switched to {user.host}!', reply_markup=ReplyKeyboardRemove())
+
+    @router.message(Command("wol"))
+    async def wol_cmd(message: types.Message, command: CommandObject, user: User):
+        args = get_args(command)
+        if len(args) != 1 or not is_valid_mac_address(args[0]):
+            return await message.answer('invalid syntax, wakeonlan {mac address}')
+
+        result, error = ssh_manager[user.host].wakeonlan(args[0])
+        if not result:
+            return await large_respond(message, error)
+        return await large_respond(message, result)
 
     return router

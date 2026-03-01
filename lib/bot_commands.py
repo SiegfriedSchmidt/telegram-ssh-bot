@@ -53,6 +53,7 @@ bot_admin_commands = [
         description='{filename:optional} - delete video, if filename not provided, you should reply to message containing filename'
     ),
     BotCommand(command='switch', description='switch to another ssh host'),
+    BotCommand(command='wol', description='{mac: required} wake on lan'),
 ]
 
 bot_admin_commands += bot_general_commands

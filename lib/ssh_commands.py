@@ -75,6 +75,9 @@ nohup sh -c '
     def curl(self, args: str):
         return self.run_single_command(f"curl {args}")
 
+    def wakeonlan(self, mac: str):
+        return self.run_single_command(f"wakeonlan {mac}")
+
     def openconnect(self, action: str):
         return self.run_single_command(f"sudo systemctl {action} openconnect.service")
 
