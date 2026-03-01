@@ -3,13 +3,13 @@ import nest_asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
-from aiogram.exceptions import TelegramBadRequest
+# from aiogram.exceptions import TelegramBadRequest
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-# from lib.api.joke_api import get_joke
-from lib.api.meme_api import get_meme
+from lib.api.joke_api import get_joke
+# from lib.api.meme_api import get_meme
 from lib.bot_commands import set_bot_commands
 from lib.config_reader import config
 from lib.gambler import Gambler
@@ -33,33 +33,38 @@ async def notification(message: str, bot: Bot):
 
 
 async def on_day_start(bot: Bot):
-    # joke = await get_joke('Dark')
-    # message = f'Daily joke:\n\n{joke}'
-    # await bot.send_message(int(config.group_id.get_secret_value()), message, parse_mode=None)
     clear_dir_contents(galton_folder_path)
 
-    url, caption = None, None
-    try:
-        url, caption = await get_meme()
-    except Exception as e:
-        main_logger.exception(e)
+    joke = await get_joke()
+    message = f'Daily joke:\n\n{joke}'
 
     for group_id in config.group_ids:
         await bot.send_message(group_id, "<b>Daily Prize Updated!</b>. Do /daily_prize to open!", parse_mode="html")
         await asyncio.sleep(5)
-        if url is None or caption is None:
-            continue
+        await bot.send_message(group_id, message, parse_mode=None)
 
-        try:
-            if url.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                await bot.send_photo(group_id, url, caption=caption)
-            elif url.endswith('.gif'):
-                await bot.send_animation(group_id, url, caption=caption)
-            elif url.endswith(('.mp4', '.gifv', '.webm')):
-                await bot.send_video(group_id, url, caption=caption)
-        except TelegramBadRequest:
-            await asyncio.sleep(1)
-            await bot.send_message(group_id, f"{url}\n\n{caption}", disable_web_page_preview=False)
+    # url, caption = None, None
+    # try:
+    #     url, caption = await get_meme()
+    # except Exception as e:
+    #     main_logger.exception(e)
+    #
+    # for group_id in config.group_ids:
+    #     await bot.send_message(group_id, "<b>Daily Prize Updated!</b>. Do /daily_prize to open!", parse_mode="html")
+    #     await asyncio.sleep(5)
+    #     if url is None or caption is None:
+    #         continue
+    #
+    #     try:
+    #         if url.endswith(('.jpg', '.jpeg', '.png', '.webp')):
+    #             await bot.send_photo(group_id, url, caption=caption)
+    #         elif url.endswith('.gif'):
+    #             await bot.send_animation(group_id, url, caption=caption)
+    #         elif url.endswith(('.mp4', '.gifv', '.webm')):
+    #             await bot.send_video(group_id, url, caption=caption)
+    #     except TelegramBadRequest:
+    #         await asyncio.sleep(1)
+    #         await bot.send_message(group_id, f"{url}\n\n{caption}", disable_web_page_preview=False)
 
     main_logger.info("Day start function executed.")
 
