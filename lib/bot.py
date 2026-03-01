@@ -121,8 +121,8 @@ async def main():
     dp.include_routers(
         errors.router,
         public_commands.router,
-        group_general.router,
         group_admin.router,
+        group_general.router,
         private_admin.router
     )
 

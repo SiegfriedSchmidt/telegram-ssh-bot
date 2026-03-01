@@ -1,4 +1,5 @@
 from lib.config_reader import config
+from lib.routers import messages
 from lib.router_factories import general_commands
 from aiogram import F, Router
 
@@ -8,4 +9,7 @@ router.message.filter(
     F.chat.id.in_(config.group_ids),
 )
 
-router.include_routers(general_commands.create_router())
+router.include_routers(
+    general_commands.create_router(),
+    messages.router
+)

@@ -1,5 +1,4 @@
 from lib.config_reader import config
-from lib.routers import messages
 from lib.router_factories import admin_commands, ssh_session
 from aiogram import F, Router
 
@@ -12,6 +11,5 @@ router.message.filter(
 
 router.include_routers(
     ssh_session.create_router(),
-    admin_commands.create_router(),
-    messages.router
+    admin_commands.create_router()
 )
