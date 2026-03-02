@@ -6,6 +6,29 @@ import pymunk
 import math
 
 
+class BallCollisionData:
+    def __init__(self, path: int, path_size: int, ball_id: int):
+        self.path = path
+        self.path_size = path_size
+        self.ball_id = ball_id
+        self.decided_pegs: set[pymunk.Vec2d] = set()
+        self.path_idx = 0
+
+    def __get_val_by_idx(self, idx: int) -> bool:
+        return bool((1 << idx) & self.path)
+
+    def get_direction(self) -> int:
+        direction = self.__get_val_by_idx(self.path_idx)
+        self.path_idx += 1
+        return int(direction) * 2 - 1
+
+    def get_path(self) -> str:
+        path_str = ''
+        for i in range(self.path_size):
+            path_str += '1' if self.__get_val_by_idx(i) else '0'
+        return path_str
+
+
 class PhysicsSimulation:
     def __init__(self, balls: int = None, seed: int = None):
         self.space_gravity = 0, -9.81
@@ -25,6 +48,8 @@ class PhysicsSimulation:
         self.v_rand = 0
         self.pos_rand = 0
         self.rows = 16
+        self.DYNAMIC_CATEGORY = 1  # 2 ** 0
+        self.STATIC_CATEGORY = 2  # 2 ** 1
         self.balls_count = 1 if balls is None else balls
         self.lowest_x, self.lowest_y, self.columns = 0, 0, 0
         self.seed = np.random.randint(2 ** 63 - 1) if seed is None else seed
@@ -38,20 +63,17 @@ class PhysicsSimulation:
         space.threads = self.space_threads
         static_body = space.static_body
 
-        DYNAMIC_CATEGORY = 1  # 2⁰
-        STATIC_CATEGORY = 2  # 2¹
-
         # Filter for dynamic shapes (only collides with static)
         dynamic_filter = pymunk.ShapeFilter(
-            categories=DYNAMIC_CATEGORY,  # what I am
-            mask=STATIC_CATEGORY  # what I collide with
+            categories=self.DYNAMIC_CATEGORY,  # what I am
+            mask=self.STATIC_CATEGORY  # what I collide with
         )
 
         # Filter for static shapes (collides with dynamic)
         # Usually you don't even need to set this one explicitly
         static_filter = pymunk.ShapeFilter(
-            categories=STATIC_CATEGORY,
-            mask=DYNAMIC_CATEGORY  # can be just 0xFFFFFFFF too
+            categories=self.STATIC_CATEGORY,
+            mask=self.DYNAMIC_CATEGORY  # can be just 0xFFFFFFFF too
         )
 
         static_lines = [
@@ -81,7 +103,7 @@ class PhysicsSimulation:
                 shape.elasticity = self.e
                 shape.friction = self.friction
                 shape.filter = static_filter
-                shape.collision_type = STATIC_CATEGORY
+                shape.collision_type = self.STATIC_CATEGORY
                 static_circles.append(shape)
                 if row == self.rows - 1:
                     static_lines.append(pymunk.Segment(static_body, (x, y - self.r), (x, 0), self.r))
@@ -111,30 +133,11 @@ class PhysicsSimulation:
             shape.elasticity = self.e
             shape.friction = self.friction
             shape.filter = dynamic_filter
-            shape.collision_type = DYNAMIC_CATEGORY
+            shape.collision_type = self.DYNAMIC_CATEGORY
 
             space.add(body, shape)
             balls.append(body)
 
-        decided = set()
-
-        # path_idx = [0]
-        # path = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-
-        def ball_hit(arbiter: pymunk.Arbiter, space: pymunk.Space, data: any):
-            ball, peg = arbiter.shapes
-            peg_pos: pymunk.Vec2d = peg.offset
-
-            pair_id = (peg_pos, ball.body.id)
-            if pair_id not in decided:
-                choice = 1 if self.random.uniform(0, 1) > 0.5 else -1
-                # choice = path[path_idx[0]]
-                # path_idx[0] += 1
-                ball.body.velocity = (1 * choice, 0)
-                decided.add(pair_id)
-            return
-
-        space.on_collision(DYNAMIC_CATEGORY, STATIC_CATEGORY, pre_solve=ball_hit)
         return space, balls
 
     def simulate(self, space: pymunk.Space, balls: list[pymunk.Body]) -> \
@@ -212,9 +215,41 @@ class PhysicsSimulation:
         manual_coefficients = list(map(float, manual_coefficients))
         print(f"{manual_coefficients=}\n{bin_probabilities=}\n{coef_E=}\n{coef_Var=}\n{bin_E=}\n{bin_Var=}")
 
+    def prepare_ball_collisions_data(self, balls: list[pymunk.Body]) -> \
+            tuple[dict[int, BallCollisionData], list[BallCollisionData]]:
+        ball_collisions_data = dict()
+        ball_collisions_list = list()
+        for i, ball_body in enumerate(balls):
+            path = int(self.random.integers(0, 2 ** self.rows))
+            ball_data = BallCollisionData(path, self.rows, i)
+            ball_collisions_data[ball_body.id] = ball_data
+            ball_collisions_list.append(ball_data)
+
+        return ball_collisions_data, ball_collisions_list
+
+    def set_pre_solve_for_balls_collisions(self, space: pymunk.Space,
+                                           ball_collisions_data: dict[int, BallCollisionData]):
+        def pre_solve_ball(arbiter: pymunk.Arbiter, space: pymunk.Space, data: any):
+            ball, peg = arbiter.shapes
+            peg_pos: pymunk.Vec2d = peg.offset
+
+            if isinstance(data, dict):
+                ball_data: BallCollisionData = data[ball.body.id]
+            else:
+                raise ValueError("Data must be a list")
+
+            if peg_pos not in ball_data.decided_pegs:
+                direction = ball_data.get_direction()
+                ball.body.velocity = (1 * direction, 0)
+                ball_data.decided_pegs.add(peg_pos)
+
+        space.on_collision(self.DYNAMIC_CATEGORY, self.STATIC_CATEGORY, pre_solve=pre_solve_ball,
+                           data=ball_collisions_data)
+
     def render(self) -> tuple[float, str, float]:
-        # Forward simulation
         space, balls = self.setup_space()
+        ball_collisions_data, ball_collisions_list = self.prepare_ball_collisions_data(balls)
+        self.set_pre_solve_for_balls_collisions(space, ball_collisions_data)
         positions, ball_category, categories_count = self.simulate(space, balls)
 
         manual_coefficients = np.array([500, 450, 30, 9, 3, 1, 0.5, 0.2, 0, 0.2, 0.5, 1, 3, 9, 30, 450, 500])
@@ -295,5 +330,5 @@ class PhysicsSimulation:
 
 
 if __name__ == '__main__':
-    physics_simulation = PhysicsSimulation(5)
+    physics_simulation = PhysicsSimulation(1)
     print(physics_simulation.render())
