@@ -1,8 +1,9 @@
 from pathlib import Path
 from matplotlib import animation
-from lib.init import galton_folder_path
+from lib.init import galton_videos_folder_path, galton_assets_folder_path
 from lib.logger import main_logger
 from lib.storage import storage
+from typing import Any
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -152,8 +153,8 @@ class PhysicsSimulation:
         return space, balls
 
     def simulate(self, space: pymunk.Space, balls: list[pymunk.Body]) -> \
-            tuple[list[list[np.ndarray[tuple[any, ...]]]], list[int], list[int]]:
-        positions: list[list[np.ndarray[tuple[any, ...]]]] = []
+            tuple[list[list[np.ndarray[tuple[Any, ...]]]], list[int], list[int]]:
+        positions: list[list[np.ndarray[tuple[Any, ...]]]] = []
         ball_category = [0 for _ in range(len(balls))]
         categories_count = [0 for _ in range(self.columns + 2)]
         resolved_count = 0
@@ -240,7 +241,7 @@ class PhysicsSimulation:
 
     def set_pre_solve_for_balls_collisions(self, space: pymunk.Space,
                                            ball_collisions_data: dict[int, BallCollisionData]):
-        def pre_solve_ball(arbiter: pymunk.Arbiter, space: pymunk.Space, data: any):
+        def pre_solve_ball(arbiter: pymunk.Arbiter, space: pymunk.Space, data: Any):
             ball, peg = arbiter.shapes
             peg_pos: pymunk.Vec2d = peg.offset
 
@@ -300,7 +301,7 @@ class PhysicsSimulation:
                 verticalalignment='center'
             )
 
-    def render(self, fig: plt.Figure, circles: list[plt.Circle], frames: list[list[np.ndarray[tuple[any, ...]]]],
+    def render(self, fig: plt.Figure, circles: list[plt.Circle], frames: list[list[np.ndarray[tuple[Any, ...]]]],
                filename: str):
         cur_frame = [-3]
 
@@ -345,13 +346,13 @@ class PhysicsSimulation:
             ball_colors.append((B, G, R))
         return ball_colors
 
-    def write_frames(self, writer: cv2.VideoWriter, frames: list[list[np.ndarray[tuple[any, ...]]]],
+    def write_frames(self, writer: cv2.VideoWriter, frames: list[list[np.ndarray[tuple[Any, ...]]]],
                      ball_colors: list[tuple[int, int, int]], width: int, height: int, background_path: str = None):
         if not writer.isOpened():
             writer.release()
             raise RuntimeError("cv2.VideoWriter failed to open")
         if background_path is None:
-            background_path = galton_folder_path / "background.png"
+            background_path = galton_assets_folder_path / "background.png"
         if not os.path.exists(background_path):
             self.save_background(background_path)
 
@@ -365,7 +366,7 @@ class PhysicsSimulation:
 
         writer.release()
 
-    def render_opencv(self, frames: list[list[np.ndarray[tuple[any, ...]]]], ball_colors: list[tuple[int, int, int]],
+    def render_opencv(self, frames: list[list[np.ndarray[tuple[Any, ...]]]], ball_colors: list[tuple[int, int, int]],
                       filename: str, background_path: str = None):
         t = time.monotonic()
         width, height = int(self.width * self.dpi), int(self.height * self.dpi)
@@ -410,7 +411,7 @@ class PhysicsSimulation:
         assert len(categories_count) == self.manual_coefficients.size, "Inconsistent number of categories"
         # self.compute_probabilities(categories_count)
 
-        filename = galton_folder_path / f"{self.seed}.mp4"
+        filename = galton_videos_folder_path / f"{self.seed}.mp4"
         multiplier = np.round(np.sum(np.array(categories_count) * self.manual_coefficients), 1)
         frames = positions[::self.subsampling]
         ball_colors = self.prepare_ball_colors(ball_category, len(categories_count))
@@ -425,7 +426,7 @@ class PhysicsSimulation:
         positions, ball_category, categories_count = self.simulate(space, balls)
 
         collision_data = ball_collisions_list[0]
-        filename = galton_folder_path / f"{collision_data.get_path()}.mp4"
+        filename = galton_videos_folder_path / f"{collision_data.get_path()}.mp4"
         frames = positions[::self.subsampling]
         ball_colors = self.prepare_ball_colors(ball_category, len(categories_count))
 

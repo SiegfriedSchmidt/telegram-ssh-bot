@@ -202,10 +202,11 @@ def create_router():
     @router.message(Command("leaderboard"))
     async def leaderboard_cmd(message: types.Message, command: CommandObject, ledger: Ledger):
         args = get_args(command)
-        balances = ledger.get_all_balances() if len(args) == 1 and args[0] == "all" else ledger.get_all_balances()[1:]
+        is_all = len(args) == 1 and args[0] == "all"
+        balances = ledger.get_all_balances() if is_all else ledger.get_all_balances()[1:]
 
         text = '\n'.join([
-            f'{idx + 1}. {username}: {amount}' for idx, (username, amount) in enumerate(balances)
+            f'{idx if is_all else idx + 1}. {username}: {amount}' for idx, (username, amount) in enumerate(balances)
         ])
         return await message.answer(f"<b>Leaderboard:</b>\n{text}", parse_mode='html')
 

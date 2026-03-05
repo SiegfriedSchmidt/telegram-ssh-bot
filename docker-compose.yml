@@ -7,6 +7,7 @@ services:
     environment:
       - SECRET_FOLDER_PATH=/app/secret
       - DATA_FOLDER_PATH=/app/data
+      - ASSETS_FOLDER_PATH=/app/assets
       - TZ=Europe/Moscow
     volumes:
       - ./secret:/app/secret
