@@ -132,7 +132,7 @@ class Gambler:
         user.galton_bet = bet
         user.galton_balls = balls
 
-        wait_msg = await message.reply(f"Waiting for simulation results /galton {bet} {balls}...")
+        wait_msg = await message.reply(f"Waiting for simulation results /galton {bet} {balls}")
 
         physics_simulation = PhysicsSimulation()
         multiplier, filename, duration = await run_in_thread(physics_simulation.run, balls)

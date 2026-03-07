@@ -56,6 +56,8 @@ bot_admin_commands = [
     BotCommand(command='wol', description='{mac: required} wake on lan'),
     BotCommand(command='follow_file', description='{location: required} follow file'),
     BotCommand(command='unfollow_file', description='stop following current file'),
+    BotCommand(command='rcon_follow', description='follow rcon logs file'),
+    BotCommand(command='rcon', description='execute rcon command'),
 ]
 
 bot_admin_commands += bot_general_commands

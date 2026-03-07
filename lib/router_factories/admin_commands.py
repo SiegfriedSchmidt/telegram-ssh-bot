@@ -8,6 +8,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove
 from aiogram.utils.chat_action import ChatActionMiddleware
+from rcon.source import rcon
 from lib.api.geoip_api import geoip
 from lib.downloader import downloader
 from lib.init import data_folder_path, videos_folder_path
@@ -334,5 +335,42 @@ def create_router():
             return await message.answer('You are not following any file right now!')
         ssh_manager[user.host].unfollow()
         return await message.answer(f'File following deactivated!')
+
+    @router.message(Command("rcon_follow"))
+    async def rcon_follow_cmd(message: types.Message, user: User):
+        rcon_settings = ssh_manager.get_host(user.host).rcon
+        if rcon_settings is None:
+            return await message.answer("RCON settings not set!")
+
+        rcon_text = '[Server thread/INFO] [net.minecraft.server.MinecraftServer/]:'
+        rcon_text_len = len(rcon_text)
+
+        async def callback(text: str):
+            lines_raw = text.split('\n')
+            lines = []
+            for line_raw in lines_raw:
+                idx = line_raw.find(rcon_text)
+                if idx != -1:
+                    line = line_raw[idx + rcon_text_len:]
+                    if len(line) > 0:
+                        lines.append(line)
+
+            if len(lines) > 0:
+                await large_respond(message, lines)
+
+        asyncio.create_task(ssh_manager[user.host].follow_file(rcon_settings.rcon_logs_path, callback))
+        return await message.answer(f'Rcon following activated! To deactivate do /unfollow_file')
+
+    @router.message(Command('rcon'))
+    async def rcon_cmd(message: types.Message, command: CommandObject, user: User):
+        args = get_args(command, 1)
+        rcon_settings = ssh_manager.get_host(user.host).rcon
+        if rcon_settings is None:
+            return await message.answer("RCON settings not set!")
+
+        response = await rcon(*args, host=rcon_settings.address, port=rcon_settings.port, passwd=rcon_settings.password)
+        if response:
+            await message.answer(response)
+        return None
 
     return router

@@ -8,8 +8,6 @@ from lib.init import keys_folder_path
 from lib.logger import ssh_logger
 from lib.models import HostModel
 
-proj = "/home/DockerProjects"
-
 
 class SSHCommands:
     def __init__(self, host: HostModel):
@@ -18,6 +16,7 @@ class SSHCommands:
         self.port = int(host.port.get_secret_value())
         self.username = host.username.get_secret_value()
         self.key = paramiko.Ed25519Key.from_private_key_file(keys_folder_path / host.key_name.get_secret_value())
+        self.proj = host.docker_projects_path
         self.ssh: paramiko.SSHClient | None = None
         self.following_file: str = ''
         ssh_logger.info(f"SSH commands module for {self.name} created!")
@@ -39,21 +38,21 @@ class SSHCommands:
         return docker_ps, docker_stats, results[2][0], results[3][0], results[4][0]
 
     def get_docker_projects(self) -> List[str]:
-        result, error = self.run_single_command(f"ls {proj}")
+        result, error = self.run_single_command(f"ls {self.proj}")
         return result.splitlines()
 
     def up_project(self, project_name: str) -> str:
-        result, error = self.run_single_command(f"cd {proj}/{project_name} && docker compose up -d")
+        result, error = self.run_single_command(f"cd {self.proj}/{project_name} && docker compose up -d")
         return error
 
     def down_project(self, project_name: str) -> str:
-        result, error = self.run_single_command(f"cd {proj}/{project_name} && docker compose down")
+        result, error = self.run_single_command(f"cd {self.proj}/{project_name} && docker compose down")
         return error
 
     def update(self):
         result, error = self.run_single_command(f"""
 nohup sh -c '
-    cd {proj}/telegram-ssh-bot &&
+    cd {self.proj}/telegram-ssh-bot &&
     docker compose pull &&
     docker compose down &&
     docker compose up -d
@@ -95,11 +94,7 @@ nohup sh -c '
                     break
 
                 if stdout.channel.recv_ready():
-                    line = stdout.readline()
-                    if line:
-                        await callback(line)
-                    else:
-                        break
+                    await callback(stdout.channel.recv(1024).decode())
                 else:
                     await asyncio.sleep(1)
         except Exception as e:

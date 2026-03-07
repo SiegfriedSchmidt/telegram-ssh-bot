@@ -105,7 +105,7 @@ def create_router():
     async def galton_cmd(message: types.Message, command: CommandObject, gambler: Gambler, user: User):
         args = get_args(command, 0, 2)
         bet = args[0] if len(args) >= 1 else None
-        balls = args[1] if len(args) == 2 else None
+        balls = args[1] if len(args) == 2 else ('1' if len(args) == 1 else None)
         return await gambler.galton(message, user, bet, balls)
 
     @router.message(Command("balance"))

@@ -15,6 +15,11 @@ class SSHManager:
             raise KeyError(name)
         return self._commands[name]
 
+    def get_host(self, name: str) -> HostModel:
+        if name not in self._hosts:
+            raise KeyError(name)
+        return self._hosts[name]
+
     def interactive_session(self, name: str, terminal_type: TerminalType) -> SSHInteractiveSession:
         if name not in self._hosts:
             raise KeyError(name)
