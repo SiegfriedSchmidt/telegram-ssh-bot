@@ -19,7 +19,6 @@ class BaseModel(Model):
 
 class User(BaseModel):
     username = CharField(unique=True, primary_key=True)
-    bet = DecimalField(default=100, decimal_places=64)
     daily_prize_time = DateTimeField(default=datetime(1980, 1, 1))
     mine_attempt_time = DateTimeField(default=datetime(1980, 1, 1))
 
@@ -76,17 +75,6 @@ peewee_logger.disabled = True
 
 def is_user_exists(username: str) -> bool:
     return User.get_or_none(username=username) is not None
-
-
-def get_user_bet(username: str) -> Decimal:
-    user = User.get_or_create(username=username)[0]
-    return user.bet
-
-
-def set_user_bet(username: str, bet: Decimal | str | float) -> None:
-    user = User.get_or_create(username=username)[0]
-    user.bet = Decimal(bet)
-    user.save()
 
 
 def get_user_stats(username: str) -> Stats | None:

@@ -1,5 +1,4 @@
 import asyncio
-from decimal import Decimal
 from aiogram import Router, types
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
@@ -37,9 +36,7 @@ def create_router():
 
     @router.message(Command("joke"))
     async def joke_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        if len(args) > 1:
-            return await message.answer('too many args!')
+        args = get_args(command, 0, 1)
 
         try:
             joke_type = args[0] if len(args) == 1 else None
@@ -50,9 +47,7 @@ def create_router():
 
     @router.message(Command("meme"))
     async def meme_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        if len(args) > 1:
-            return await message.answer('too many args!')
+        args = get_args(command, 0, 1)
 
         try:
             meme_subreddit = args[0] if len(args) == 1 else None
@@ -86,12 +81,7 @@ def create_router():
 
     @router.message(Command("geoip"))
     async def geoip_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        if len(args) == 0:
-            return await message.answer('too few args!')
-
-        if len(args) > 1:
-            return await message.answer('too many args!')
+        args = get_args(command, 1, 1)
 
         try:
             json = await geoip(args[0])
@@ -105,35 +95,17 @@ def create_router():
         return await message.answer('https://www.youtube-nocookie.com/embed/8V1eO0Ztuis')
 
     @router.message(Command("gamble"))
-    async def gamble_cmd(message: types.Message, command: CommandObject, gambler: Gambler):
-        args = get_args(command)
-        bet = 0
-        if len(args) == 1:
-            if not args[0].isdecimal() or (bet := Decimal(args[0])) < 0:
-                return await message.answer('bet should be decimal and be greater than 0!')
-
-        if len(args) > 1:
-            return await message.answer('too many args!')
-
-        return await gambler.gamble(message, bet)
+    async def gamble_cmd(message: types.Message, command: CommandObject, gambler: Gambler, user: User):
+        args = get_args(command, 0, 1)
+        bet = args[0] if len(args) == 1 else None
+        return await gambler.gamble(message, user, bet)
 
     @router.message(Command("galton"))
-    async def galton_cmd(message: types.Message, command: CommandObject, gambler: Gambler):
-        args = get_args(command)
-        bet = 0
-        balls = 1
-        if len(args) >= 1:
-            if not args[0].isdecimal() or (bet := Decimal(args[0])) < 0:
-                return await message.answer('bet should be decimal and be greater than 0!')
-
-        if len(args) == 2:
-            if not args[1].isdigit() or (balls := int(args[1])) < 1:
-                return await message.answer('number of balls should be decimal and be greater than 0!')
-
-        if len(args) > 2:
-            return await message.answer('too many args!')
-
-        return await gambler.galton(message, bet, balls)
+    async def galton_cmd(message: types.Message, command: CommandObject, gambler: Gambler, user: User):
+        args = get_args(command, 0, 2)
+        bet = args[0] if len(args) >= 1 else None
+        balls = args[1] if len(args) == 2 else None
+        return await gambler.galton(message, user, bet, balls)
 
     @router.message(Command("balance"))
     async def balance_cmd(message: types.Message, ledger: Ledger):
@@ -141,7 +113,7 @@ def create_router():
 
     @router.message(Command("transfer"))
     async def transfer_cmd(message: types.Message, command: CommandObject, state: FSMContext, ledger: Ledger):
-        args = get_args(command)
+        args = get_args(command, 0, 2)
         if message.reply_to_message:
             to_user = message.reply_to_message.from_user.username
             if len(args) == 1 and args[0].isdecimal():
@@ -201,7 +173,7 @@ def create_router():
 
     @router.message(Command("leaderboard"))
     async def leaderboard_cmd(message: types.Message, command: CommandObject, ledger: Ledger):
-        args = get_args(command)
+        args = get_args(command, 0, 1)
         is_all = len(args) == 1 and args[0] == "all"
         balances = ledger.get_all_balances() if is_all else ledger.get_all_balances()[1:]
 
@@ -234,7 +206,7 @@ def create_router():
 
     @router.message(Command("mine_block_attempt"))
     async def mine_block_attempt(message: types.Message, command: CommandObject, ledger: Ledger, user: User):
-        args = get_args(command)
+        args = get_args(command, 0, 1)
         if len(args) == 1 and args[0].isdigit():
             nonce = int(args[0])
             user.nonce = nonce
@@ -267,9 +239,9 @@ def create_router():
 
     @router.message(Command("explore_block"))
     async def explore_block_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        if len(args) != 1 or not args[0].isdigit():
-            return await message.answer("Invalid number or type of arguments!")
+        args = get_args(command, 1, 1)
+        if not args[0].isdigit():
+            return await message.answer("Invalid type of arguments!")
 
         block = database.get_block(int(args[0]))
         if block is None:
@@ -286,7 +258,7 @@ def create_router():
 
     @router.message(Command("user_stats"))
     async def user_stats_cmd(message: types.Message, command: CommandObject, ledger: Ledger):
-        args = get_args(command)
+        args = get_args(command, 0, 1)
 
         if message.reply_to_message:
             username = message.reply_to_message.from_user.username

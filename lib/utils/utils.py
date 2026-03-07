@@ -46,8 +46,15 @@ def remove_file(path: Path) -> int:
     return filesize
 
 
-def get_args(command: CommandObject):
-    return command.args.split() if command.args else []
+def get_args(command: CommandObject, min_args=-1, max_args=-1) -> List[str]:
+    args = command.args.split() if command.args else []
+    args_count = len(args)
+    if min_args != -1 and args_count < min_args:
+        raise RuntimeError(f"Too few arguments {args_count} < {min_args}.")
+    elif max_args != -1 and args_count > max_args:
+        raise RuntimeError(f"Too many arguments {args_count} > {max_args}.")
+
+    return args
 
 
 def used_today(last_used: datetime, day_start_time: str) -> bool:

@@ -12,23 +12,23 @@ async def error_handler(event: ErrorEvent):
     exception = event.exception
 
     if isinstance(exception, TelegramBadRequest):
-        error_text = str(exception)
-        if "can't parse" in error_text.lower():
+        error_text = str(exception).lower()
+        if "can't parse" in error_text:
             await safe_send(event.update, "Bot tried to send something weird. Skipping...")
-        elif "message is empty" in error_text.lower():
+        elif "message is empty" in error_text:
             await safe_send(event.update, "Empty message – nothing to send!")
-        elif "caption is too long" in error_text.lower():
+        elif "caption is too long" in error_text:
             await safe_send(event.update, "That caption was too long for Telegram!")
         else:
             await safe_send(event.update, f"Telegram rejected the message. {str(exception)}")
     elif isinstance(exception, TelegramAPIError):
         await safe_send(event.update, f"Telegram server is having a moment. {str(exception)}")
     elif isinstance(exception, RuntimeError):
-        await safe_send(event.update, f"Runtime error occurred. {str(exception)}")
+        return await event.update.message.reply(str(exception))
     else:
         await safe_send(event.update, f"Unknown error occurred. {str(exception)}")
 
-    main_logger.exception("Telegram error caught globally", exc_info=exception)
+    return main_logger.exception("Telegram error caught globally", exc_info=exception)
 
 
 async def safe_send(update, text: str):

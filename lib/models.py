@@ -1,5 +1,4 @@
 from enum import Enum, EnumMeta
-
 from pydantic import BaseModel, SecretStr
 
 
@@ -25,8 +24,12 @@ class HostModel(BaseModel):
 
 
 class UserModel(BaseModel):
+    username: str
     host: str
     nonce: int
+    gamble_bet: int
+    galton_bet: int
+    galton_balls: int
 
 
 class TerminalType(str, BaseEnum):

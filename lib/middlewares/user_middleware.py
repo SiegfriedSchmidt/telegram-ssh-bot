@@ -12,5 +12,5 @@ class UserMiddleware(BaseMiddleware):
             data: Dict[str, Any]
     ) -> Any:
         user_data = data['event_from_user']
-        data['user'] = temporal_storage.get_user(user_data.id)
+        data['user'] = temporal_storage.get_user(user_data.id, user_data.username)
         await handler(event, data)

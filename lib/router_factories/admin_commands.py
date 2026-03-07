@@ -61,13 +61,7 @@ def create_router():
 
     @router.message(Command("up"))
     async def up_cmd(message: types.Message, command: CommandObject, user: User):
-        args = get_args(command)
-        if len(args) == 0:
-            return await message.answer('too few args!')
-
-        if len(args) > 1:
-            return await message.answer('too many args!')
-
+        args = get_args(command, 1, 1)
         error = ssh_manager[user.host].up_project(args[0])
         if error:
             return await message.answer(error)
@@ -75,13 +69,7 @@ def create_router():
 
     @router.message(Command("down"))
     async def down_cmd(message: types.Message, command: CommandObject, user: User):
-        args = get_args(command)
-        if len(args) == 0:
-            return await message.answer('too few args!')
-
-        if len(args) > 1:
-            return await message.answer('too many args!')
-
+        args = get_args(command, 1, 1)
         if args[0] == "telegram-ssh-bot":
             return await message.answer("Nah, you won't do that!")
 
@@ -187,8 +175,8 @@ def create_router():
 
     @router.message(Command("openconnect"))
     async def openconnect_cmd(message: types.Message, command: CommandObject, user: User):
-        args = get_args(command)
-        if len(args) != 1 or args[0] not in ['status', 'restart', 'stop', 'start']:
+        args = get_args(command, 1, 1)
+        if args[0] not in ['status', 'restart', 'stop', 'start']:
             return await message.answer('invalid syntax, openconnect status|restart|stop|start')
 
         result, error = ssh_manager[user.host].openconnect(args[0])
@@ -198,10 +186,7 @@ def create_router():
 
     @router.message(Command("access"))
     async def access_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
-        if len(args) != 1:
-            return await message.answer('invalid syntax, you must provide only valid OTP code.')
-
+        args = get_args(command, 1, 1)
         result = otp_manager.authenticate(message.from_user.id, args[0])
         if result:
             return await message.answer(result)
@@ -231,7 +216,7 @@ def create_router():
     @router.message(Command("activate"), flags={'otp': True})
     async def activate_cmd(message: types.Message, state: FSMContext, user: User, command: CommandObject):
         terminal_type = 'text'
-        args = get_args(command)
+        args = get_args(command, 0, 1)
         if len(args) == 1:
             terminal_type = args[0]
             if terminal_type not in TerminalType:
@@ -248,7 +233,7 @@ def create_router():
 
     @router.message(Command("download"))
     async def download_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
+        args = get_args(command, 0, 1)
         if message.reply_to_message:
             url = message.reply_to_message.text
         elif len(args) == 1:
@@ -287,7 +272,7 @@ def create_router():
 
     @router.message(Command("delete_video"))
     async def delete_video_cmd(message: types.Message, command: CommandObject):
-        args = get_args(command)
+        args = get_args(command, 0, 1)
         if message.reply_to_message:
             filename = message.reply_to_message.text
             if not filename:
@@ -323,8 +308,8 @@ def create_router():
 
     @router.message(Command("wol"))
     async def wol_cmd(message: types.Message, command: CommandObject, user: User):
-        args = get_args(command)
-        if len(args) != 1 or not is_valid_mac_address(args[0]):
+        args = get_args(command, 1, 1)
+        if not is_valid_mac_address(args[0]):
             return await message.answer('invalid syntax, wakeonlan {mac address}')
 
         result, error = ssh_manager[user.host].wakeonlan(args[0])
@@ -334,9 +319,7 @@ def create_router():
 
     @router.message(Command("follow_file"), flags={'otp': True})
     async def follow_file_cmd(message: types.Message, command: CommandObject, user: User):
-        args = get_args(command)
-        if len(args) != 1:
-            return await message.answer('invalid syntax, follow_file {location}')
+        args = get_args(command, 1, 1)
 
         async def callback(text: str):
             await message.answer(text)

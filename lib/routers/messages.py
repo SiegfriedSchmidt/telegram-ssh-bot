@@ -2,8 +2,11 @@ from aiogram import Router, F, types
 from aiogram.types import ReactionTypeEmoji
 from lib.config_reader import config
 from lib.gambler import Gambler
+from lib.middlewares.user_middleware import UserMiddleware
+from lib.temporal_storage import User
 
 router = Router()
+router.message.middleware(UserMiddleware())
 
 
 @router.message(F.text.contains('admin'))
@@ -19,5 +22,5 @@ async def bipki_message(message: types.Message):
 
 
 @router.message(F.dice.emoji == "🎰")
-async def dice_message(message: types.Message, gambler: Gambler):
-    await gambler.gamble(message)
+async def dice_message(message: types.Message, gambler: Gambler, user: User):
+    await gambler.gamble(message, user)

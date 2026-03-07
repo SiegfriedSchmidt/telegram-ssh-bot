@@ -104,9 +104,9 @@ async def send(message: types.Message, state: FSMContext):
 
 @router.message(Command("tx"))
 async def tx_cmd(message: types.Message, command: CommandObject, ledger: Ledger):
-    args = get_args(command)
-    if len(args) < 4 or not args[2].isdecimal():
-        return await message.answer('Invalid amount or type of arguments.')
+    args = get_args(command, 4, 4)
+    if not args[2].isdecimal():
+        return await message.answer('Invalid type of arguments.')
 
     tx = ledger.record_transaction(*args[:3], " ".join(args[3:]))
     return await message.answer(
@@ -136,9 +136,7 @@ async def delete_pending_cmd(message: types.Message, ledger: Ledger):
 
 @router.message(Command("reset_daily"))
 async def reset_daily_cmd(message: types.Message, command: CommandObject):
-    args = get_args(command)
-    if len(args) != 1:
-        return await message.answer("Invalid amount or type of arguments.")
+    args = get_args(command, 1, 1)
 
     username = args[0]
     if not database.is_user_exists(username):
