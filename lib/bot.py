@@ -108,8 +108,11 @@ async def on_shutdown(bot: Bot, scheduler: AsyncIOScheduler) -> None:
 
 async def main():
     # logging.basicConfig(level=logging.DEBUG)
-    session = AiohttpSession(proxy=config.proxy_url if config.proxy_url else None)
-    bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=None), session=session)
+    bot = Bot(
+        token=config.bot_token.get_secret_value(),
+        default=DefaultBotProperties(parse_mode=None, disable_notification=True),
+        session=AiohttpSession(proxy=config.proxy_url if config.proxy_url else None)
+    )
 
     # dispatcher
     dp = Dispatcher()
