@@ -20,6 +20,7 @@ class PersistentData:
     mine_block_reward: int = 2000
     mine_block_user_timeout: int = 300
     mine_block_user_attempts: int = 16
+    galton_max_concurrent_per_user: int = 2
     ffmpeg_use: bool = False
     ffmpeg_crf: FFMPEG_CRF = 23
     ffmpeg_preset: FFMPEG_PRESET = 'veryfast'

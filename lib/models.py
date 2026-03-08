@@ -39,6 +39,7 @@ class UserModel(BaseModel):
     gamble_bet: int
     galton_bet: int
     galton_balls: int
+    galton_running_count: int
 
 
 class TerminalType(str, BaseEnum):

@@ -25,7 +25,8 @@ class TemporalStorage:
                 nonce=1,
                 gamble_bet=100,
                 galton_bet=100,
-                galton_balls=1
+                galton_balls=1,
+                galton_running_count=0
             )
         return self._users[user_id]
 

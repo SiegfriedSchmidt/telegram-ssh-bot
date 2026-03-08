@@ -6,6 +6,7 @@ from lib.ledger import Ledger
 from lib import database
 from lib.models import GainType, StatsType
 from lib.physics_simulation import PhysicsSimulation
+from lib.storage import storage
 from lib.temporal_storage import User
 from lib.utils.utils import run_in_thread
 
@@ -122,6 +123,11 @@ class Gambler:
         bet = await self.validate_bet(user.username, user.galton_bet if user_bet is None else user_bet)
         balls = user.galton_balls if user_balls is None else int(user_balls)
 
+        if user.galton_running_count >= storage.galton_max_concurrent_per_user:
+            return await message.reply(
+                f"The limit of concurrent galtons exceeded! Only {storage.galton_max_concurrent_per_user} concurrent galtons allowed."
+            )
+
         if balls < 1 or balls > 750:
             return await message.reply("Amount of balls should be between 1 and 750!")
 
@@ -129,18 +135,21 @@ class Gambler:
         if bet_per_ball < 100:
             return await message.reply("Bet per ball should be >= 100!")
 
-        user.galton_bet = bet
-        user.galton_balls = balls
-
         wait_msg = await message.reply(f"Waiting for simulation results /galton {bet} {balls}")
 
+        user.galton_bet = bet
+        user.galton_balls = balls
+        database.update_user_stats(user.username, StatsType.galton)
+        self.ledger.record_deposit(user.username, bet, "bet")
+
+        user.galton_running_count += 1
         physics_simulation = PhysicsSimulation()
         multiplier, filename, duration = await run_in_thread(physics_simulation.run, balls)
+        user.galton_running_count -= 1
+
         gain = int(multiplier * bet_per_ball)
         multiplier = round(multiplier / balls, 2)
 
-        database.update_user_stats(user.username, StatsType.galton)
-        self.ledger.record_deposit(user.username, bet, "bet")
         if gain:
             self.ledger.record_gain(user.username, gain, f"Galton X{multiplier}")
 

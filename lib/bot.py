@@ -7,13 +7,12 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-
 from lib.api.joke_api import get_joke
 # from lib.api.meme_api import get_meme
 from lib.bot_commands import set_bot_commands
 from lib.config_reader import config
 from lib.gambler import Gambler
-from lib.init import galton_videos_folder_path
+from lib.init import galton_videos_folder_path, bot_version
 from lib.ledger import Ledger, LedgerError
 from lib.routers import public_commands, errors, group_admin, group_general, private_admin
 from lib.logger import main_logger
@@ -87,7 +86,7 @@ async def on_startup(bot: Bot, scheduler: AsyncIOScheduler, ledger: Ledger) -> N
     scheduler.start()
 
     # start message
-    start_message = "Bot started."
+    start_message = f"Bot {bot_version} started."
 
     # startup docker checks
     if storage.startup_docker_checks:
