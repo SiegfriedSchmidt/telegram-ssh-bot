@@ -4,9 +4,10 @@ from aiogram import Router, types
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile
+from aiogram.types import BufferedInputFile, FSInputFile
 from aiogram.utils.chat_action import ChatActionMiddleware
 from lib import database
+from lib.blackjack import Blackjack
 from lib.bot_commands import text_bot_general_commands, text_bot_admin_commands
 from lib.config_reader import config
 from lib.database import get_user_blocks_count, get_total_users_blocks_count
@@ -17,6 +18,7 @@ from lib.api.meme_api import get_meme
 from lib.api.geoip_api import geoip
 from lib.gambler import Gambler
 from lib.middlewares.user_middleware import UserMiddleware
+from lib.states.blackjack_state import BlackjackState
 from lib.states.confirmation_state import ConfirmationState
 from lib.storage import storage
 from lib.temporal_storage import User
@@ -107,6 +109,22 @@ def create_router():
         bet = args[0] if len(args) >= 1 else None
         balls = args[1] if len(args) == 2 else ('1' if len(args) == 1 else None)
         return await gambler.galton(message, user, bet, balls)
+
+    @router.message(Command("blackjack"))
+    async def blackjack_cmd(message: types.Message, command: CommandObject, state: FSMContext, user: User):
+        args = get_args(command, 0, 1)
+        bet = args[0] if len(args) == 1 else user.blackjack_bet
+
+        blackjack = Blackjack()
+        filename = blackjack.start()
+        video = FSInputFile(filename, filename=str(filename))
+
+        await state.set_state(BlackjackState.blackjack_activated)
+        await state.set_data({"blackjack": blackjack, "bet": bet})
+        return await message.reply_video(
+            video,
+            caption=f"Blackjack game session started with bet {bet}! In this state you can only do /hit or /stand. Good luck..."
+        )
 
     @router.message(Command("balance"))
     async def balance_cmd(message: types.Message, ledger: Ledger):

@@ -11,6 +11,7 @@ bot_general_commands = [
     BotCommand(command='geoip', description='{ip:required} - get geoip'),
     BotCommand(command='gamble', description='{bet: optional} some gambling'),
     BotCommand(command='galton', description='{bet: optional, balls: optional} some galton board gambling'),
+    BotCommand(command='blackjack', description='{bet: optional} blackjack'),
     BotCommand(command='balance', description='show gambling balance'),
     BotCommand(command='transfer', description='{amount: required, username: optional} - make transfer'),
     BotCommand(command='daily_prize', description='obtain daily prize'),

@@ -24,6 +24,7 @@ class TemporalStorage:
                 host=config.main_host.get_secret_value(),
                 nonce=1,
                 gamble_bet=100,
+                blackjack_bet=100,
                 galton_bet=100,
                 galton_balls=1,
                 galton_running_count=0

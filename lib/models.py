@@ -38,6 +38,7 @@ class UserModel(BaseModel):
     nonce: int
     gamble_bet: int
     galton_bet: int
+    blackjack_bet: int
     galton_balls: int
     galton_running_count: int
 
