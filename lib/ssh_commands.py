@@ -96,8 +96,8 @@ nohup sh -c '
 
                 if stdout.channel.recv_ready():
                     await callback(stdout.channel.recv(1024).decode())
-                else:
-                    await asyncio.sleep(1)
+
+                await asyncio.sleep(1)
         except Exception as e:
             ssh_logger.error("Error in file following", exc_info=e)
         finally:

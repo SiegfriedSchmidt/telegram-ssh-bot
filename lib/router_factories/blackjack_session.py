@@ -23,6 +23,7 @@ def create_router():
         if lose:
             media.caption = blackjack.get_caption_and_record_gain(BlackjackResultType.bust)
             await state.clear()
+            return await callback.message.edit_media(media)
 
         return await callback.message.edit_media(media, reply_markup=blackjack_keyboard_builder.as_markup())
 
