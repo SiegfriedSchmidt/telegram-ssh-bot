@@ -95,7 +95,12 @@ def create_router():
     async def update(message: types.Message, user: User, state: FSMContext):
         if message.text == "y":
             await message.answer('performing image update...')
-            ssh_manager[user.host].update()
+            bot_update_log_file = ssh_manager[user.host].update()
+
+            async def callback(text: str):
+                await message.answer(text)
+
+            asyncio.create_task(ssh_manager[user.host].follow_file(bot_update_log_file, callback))
         else:
             await message.answer('abort')
         return await state.clear()

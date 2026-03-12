@@ -49,16 +49,17 @@ class SSHCommands:
         result, error = self.run_single_command(f"cd {self.proj}/{project_name} && docker compose down")
         return error
 
-    def update(self):
-        result, error = self.run_single_command(f"""
+    def update(self) -> str:
+        bot_update_log_file = "/tmp/bot_update.log"
+        self.run_single_command(f"""
 nohup sh -c '
     cd {self.proj}/telegram-ssh-bot &&
     docker compose pull &&
     docker compose down &&
     docker compose up -d
-' >/tmp/bot_update.log 2>&1 &
+' >{bot_update_log_file} 2>&1 &
 """)
-        return result
+        return bot_update_log_file
 
     # youruser ALL=(ALL) NOPASSWD: /usr/sbin/reboot
     def reboot(self):

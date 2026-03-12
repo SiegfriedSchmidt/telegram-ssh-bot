@@ -1,3 +1,4 @@
+import random
 from pydantic import field_validator
 from lib.models import UserModel
 from lib.ssh_manager import ssh_manager
@@ -22,7 +23,7 @@ class TemporalStorage:
             self._users[user_id] = User(
                 username=user_username,
                 host=config.main_host.get_secret_value(),
-                nonce=1,
+                nonce=random.randint(1, 1000),
                 gamble_bet=100,
                 blackjack_bet=100,
                 galton_bet=100,
