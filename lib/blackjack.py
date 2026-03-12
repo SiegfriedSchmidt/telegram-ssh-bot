@@ -5,7 +5,6 @@ import random as rnd
 import math
 from typing import Literal
 from lib.init import blackjack_assets_folder_path, blackjack_videos_folder_path
-from lib.opencv_custom_writer import OpencvCustomWriter
 
 table = cv2.imread(blackjack_assets_folder_path / "background.jpg", cv2.IMREAD_UNCHANGED)
 table = cv2.resize(table, (int(table.shape[0] / 5), int(table.shape[1] / 5)))
@@ -99,31 +98,29 @@ class Blackjack:
         self.deck: set[str] = set(cards.keys())
         self.dealer_hand: list[str] = []
         self.player_hand: list[str] = []
-        self.fps = 50
 
     def get_random_card(self) -> str:
         card = rnd.choice(tuple(self.deck))
         self.deck.remove(card)
         return card
 
-    def write_frames(self, frames: list[np.ndarray]) -> str:
+    @staticmethod
+    def write_image(image: np.ndarray) -> str:
         blackjack_videos_folder_path.mkdir(exist_ok=True)
-        filename = blackjack_videos_folder_path / f"{random.randint(0, 1 << 31)}.mp4"
-        with OpencvCustomWriter(self.fps, table_w, table_h, filename) as writer:
-            for frame in frames:
-                writer.write(frame)
+        filename = blackjack_videos_folder_path / f"{random.randint(0, 1 << 31)}.png"
+        cv2.imwrite(filename, image)
         return filename
 
     def start(self) -> str:
-        self.dealer_hand.append('S2')
-        self.dealer_hand.append('H2')
+        self.dealer_hand.append(self.get_random_card())
+        self.dealer_hand.append(self.get_random_card())
         self.player_hand.append(self.get_random_card())
         self.player_hand.append(self.get_random_card())
-        return self.write_frames(self.render_initial())
+        return self.write_image(self.render_initial())
 
     def hit(self) -> tuple[str, bool]:
         new_card = self.get_random_card()
-        filename = self.write_frames(self.render_hit(new_card))
+        filename = self.write_image(self.render_hit(new_card))
         self.player_hand.append(new_card)
         score = calculate_score(self.player_hand)
         return filename, score > 21
@@ -136,7 +133,7 @@ class Blackjack:
             self.dealer_hand.append(self.get_random_card())
             dealer_score = calculate_score(self.dealer_hand)
 
-        filename = self.write_frames(self.render_stand())
+        filename = self.write_image(self.render_stand())
 
         if dealer_score > 21 or dealer_score < player_score:
             return filename, "win"
@@ -145,7 +142,7 @@ class Blackjack:
         else:
             return filename, "lose"
 
-    def render_stand(self) -> list[np.ndarray]:
+    def render_stand(self) -> np.ndarray:
         card_pad = card_size[0]
         start_pos = math.floor((table_w - card_pad * len(self.dealer_hand)) / 2)
 
@@ -153,67 +150,35 @@ class Blackjack:
             card_pad = math.floor((table_w - card_size[0]) / (len(self.dealer_hand) - 1))
             start_pos = 0
 
-        frames = []
-        for frame_i in range(len(self.dealer_hand) * 31):
-            frame = table.copy()
-            self.render_hands(frame, dealer=False)
-            for j, card in enumerate(self.dealer_hand):
-                if j > 1 and j * 31 > frame_i:
-                    continue
-
-                i = frame_i % 31
-                target_pos = start_pos + card_pad * j, 100
-                if (j + 1) * 31 <= frame_i:
-                    progress = 1
-                elif j == 0:
-                    target_pos = get_anim_pos((table_c[0] - card_size[0], 100), target_pos, i / 30)
-                    progress = 1
-                elif j == 1:
-                    if j * 31 > frame_i:
-                        target_pos = get_anim_pos((table_c[0], 100), target_pos, i / 30)
-                        progress = 0
-                    else:
-                        progress = i / 30
-                else:
-                    target_pos = get_anim_pos((table_w - card_size[0], 100), target_pos, i / 30)
-                    progress = i / 30
-
-                draw_card(frame, target_pos, card, progress=progress)
+        image = table.copy()
+        self.render_hands(image, dealer=False)
+        for j, card in enumerate(self.dealer_hand):
+            target_pos = start_pos + card_pad * j, 100
+            draw_card(image, target_pos, card)
 
             # cv2.imshow("frame", frame)
             # cv2.waitKey(10)
-            frames.append(frame)
-        return frames
+        return image
 
-    def render_hit(self, new_card: str) -> list[np.ndarray]:
-        frames = []
-        for i in range(31):
-            frame = table.copy()
-            self.render_hands(frame)
-            draw_card(frame, get_pos(len(self.player_hand)), new_card, progress=i / 30)
+    def render_hit(self, new_card: str) -> np.ndarray:
+        image = table.copy()
+        self.render_hands(image)
+        draw_card(image, get_pos(len(self.player_hand)), new_card)
 
-            frames.append(frame)
-        return frames
+        return image
 
-    def render_initial(self) -> list[np.ndarray]:
-        frames = []
-        for i in range(56):
-            frame = table.copy()
-            self.render_hands(frame, i)
+    def render_initial(self) -> np.ndarray:
+        image = table.copy()
+        self.render_hands(image)
+        return image
 
-            frames.append(frame)
-        return frames
-
-    def render_hands(self, frame: np.ndarray, i: int | None = None, dealer=True):
-        opening = i is not None
-
+    def render_hands(self, frame: np.ndarray, dealer=True):
         if dealer:
-            progress = (i - 5) / 20 if opening else 1
-            draw_card(frame, (table_c[0] - card_size[0], 100), self.dealer_hand[0], progress)
+            draw_card(frame, (table_c[0] - card_size[0], 100), self.dealer_hand[0], 1)
             draw_card(frame, (table_c[0], 100))
 
         for j, card in enumerate(self.player_hand):
-            draw_card(frame, get_pos(j), card, (i - 5 * (j + 4)) / 30 if opening else 1)
+            draw_card(frame, get_pos(j), card, 1)
 
 
 def main():

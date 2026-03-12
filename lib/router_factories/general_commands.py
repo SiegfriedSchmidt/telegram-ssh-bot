@@ -117,12 +117,12 @@ def create_router():
 
         blackjack = Blackjack()
         filename = blackjack.start()
-        video = FSInputFile(filename, filename=str(filename))
+        image = FSInputFile(filename, filename=str(filename))
 
         await state.set_state(BlackjackState.blackjack_activated)
         await state.set_data({"blackjack": blackjack, "bet": bet})
-        return await message.reply_video(
-            video,
+        return await message.reply_photo(
+            image,
             caption=f"Blackjack game session started with bet {bet}! In this state you can only do /hit or /stand. Good luck..."
         )
 

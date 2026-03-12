@@ -16,10 +16,10 @@ def create_router():
         blackjack: Blackjack = state_data.get("blackjack")
         filename, lose = blackjack.hit()
 
-        video = FSInputFile(filename, filename=str(filename))
+        image = FSInputFile(filename, filename=str(filename))
         if lose:
             await state.clear()
-        return await message.reply_video(video, caption="You busted!" if lose else None)
+        return await message.reply_photo(image, caption="You busted!" if lose else None)
 
     @router.message(Command("stand"))
     async def stand_cmd(message: types.Message, state: FSMContext):
@@ -28,7 +28,7 @@ def create_router():
         bet: int = state_data.get("bet")
         filename, result = blackjack.stand()
 
-        video = FSInputFile(filename, filename=str(filename))
+        image = FSInputFile(filename, filename=str(filename))
         await state.clear()
 
         if result == 'lose':
@@ -37,6 +37,6 @@ def create_router():
             caption = "It's a draw!"
         else:
             caption = "You won!"
-        return await message.reply_video(video, caption=caption)
+        return await message.reply_photo(image, caption=caption)
 
     return router
