@@ -80,7 +80,7 @@ nohup sh -c '
     def wakeonlan(self, mac: str):
         return self.run_single_command(f"wakeonlan {mac}")
 
-    async def follow_file(self, location: str, callback: Callable[[str], Awaitable[None]]) -> None:
+    async def follow_file(self, location: str, callback: Callable[[str], Awaitable[None]], timeout=1) -> None:
         if self.following_file:
             raise RuntimeError(f"You are following file '{self.following_file}' right now!")
 
@@ -97,7 +97,7 @@ nohup sh -c '
                 if stdout.channel.recv_ready():
                     await callback(stdout.channel.recv(1024).decode())
 
-                await asyncio.sleep(1)
+                await asyncio.sleep(timeout)
         except Exception as e:
             ssh_logger.error("Error in file following", exc_info=e)
         finally:

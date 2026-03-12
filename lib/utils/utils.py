@@ -4,7 +4,7 @@ import re
 from datetime import datetime, time, timedelta
 from io import BytesIO
 from pathlib import Path
-from typing import List, Iterable, Tuple, Protocol
+from typing import List, Iterable, Tuple, Protocol, Union, runtime_checkable
 from aiogram import types
 from aiogram.filters import CommandObject
 
@@ -93,16 +93,17 @@ async def run_in_thread(func, *args):
     return await loop.run_in_executor(None, func, *args)
 
 
+@runtime_checkable
 class Stringable(Protocol):
     def __str__(self) -> str: ...
 
 
-async def large_respond(message: types.Message, printable: Stringable | Iterable[Stringable], timeout=3,
-                        characters=3000, maximum=6, **kwargs) -> bool:
+async def large_respond(message: types.Message, printable: Union[str, Iterable[Stringable | str]],
+                        timeout=3, characters=3000, maximum=6, **kwargs) -> bool:
     if not printable:
         await message.answer("Nothing.")
         return True
-    elif not isinstance(printable, Iterable):
+    elif isinstance(printable, str):
         string = printable if isinstance(printable, str) else str(printable)
 
         if len(string) >= characters * 4:

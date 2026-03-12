@@ -98,9 +98,9 @@ def create_router():
             bot_update_log_file = ssh_manager[user.host].update()
 
             async def callback(text: str):
-                await message.answer(text)
+                await large_respond(message, text)
 
-            asyncio.create_task(ssh_manager[user.host].follow_file(bot_update_log_file, callback))
+            asyncio.create_task(ssh_manager[user.host].follow_file(bot_update_log_file, callback, 5))
         else:
             await message.answer('abort')
         return await state.clear()
