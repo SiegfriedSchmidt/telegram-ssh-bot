@@ -1,10 +1,8 @@
-from matplotlib import animation
-from lib.init import galton_videos_folder_path, galton_assets_folder_path
+from lib.init import galton_videos_folder_path
 from lib.logger import main_logger
 from lib.opencv_custom_writer import OpencvCustomWriter
 from lib.storage import storage
 from typing import Any
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pymunk
@@ -50,7 +48,7 @@ class PhysicsSimulation:
         self.T = 14  # how long to simulate?
         self.dt = 1 / 300  # we simulate 300 timesteps per second
         self.subsampling = 10  # render one out of this number of timesteps.
-        self.dpi = 40  # use low values for preview. dpi=120 yields fullhd video if width,height are 16,9
+        self.dpi = 50  # use low values for preview. dpi=120 yields fullhd video if width,height are 16,9
         self.r = 0.15
         self.R = 0.2
         self.gap = self.r * 2 + self.R * 2 + 0.2
@@ -257,109 +255,75 @@ class PhysicsSimulation:
         space.on_collision(self.DYNAMIC_CATEGORY, self.STATIC_CATEGORY, pre_solve=pre_solve_ball,
                            data=ball_collisions_data)
 
-    def prepare_figure(self) -> tuple[plt.Figure, plt.Axes]:
-        fig, ax = plt.subplots(figsize=(self.width, self.height), dpi=self.dpi)
-        ax.set(xlim=[0, self.width], ylim=[0, self.height])
-        ax.set_aspect("equal")
-        ax.set_position((0, 0, 1, 1))
-        fig.set(facecolor="y")
-        return fig, ax
-
-    @staticmethod
-    def prepare_patches(balls: list[pymunk.Body], ball_category: list[int], len_categories: int) -> list[plt.Circle]:
-        cmap = plt.get_cmap("viridis")
-        circles = [
-            plt.Circle(
-                xy=(0, 0),
-                radius=b.radius,
-                facecolor=cmap((ball_category[i] - 1) / (len_categories - 1)) if ball_category[i] != 0 else "b"
-            ) for i, b in enumerate(balls)
-        ]
-        return circles
-
-    def prepare_background(self, ax: plt.Axes, space: pymunk.Space, len_categories: int):
-        # ax.set_facecolor((176 / 255, 196 / 255, 177 / 255))
-        # ax.set_facecolor((73 / 255, 151 / 255, 208 / 255))
-        # ax.set_facecolor((97 / 255, 64 / 255, 81 / 255))
-        ax.set_facecolor((140 / 255, 146 / 255, 172 / 255))
-
-        categories_middle = (len_categories - 1) / 2
-        cmap = plt.get_cmap("autumn")
-        for s in space.static_body.shapes:
-            if isinstance(s, pymunk.Circle):
-                ax.add_patch(plt.Circle((s.offset.x, s.offset.y), radius=s.radius, facecolor='black'))
-            elif isinstance(s, pymunk.Segment):
-                idx = np.floor(abs(s.a.x - self.lowest_x - categories_middle * self.gap + 0.5 * self.gap) / self.gap)
-                color = cmap(idx / (categories_middle - 1))
-                ax.plot([s.a.x, s.b.x], [s.a.y, s.b.y], linewidth=s.radius * self.dpi, color=color)
-
-        for i, coef in enumerate(self.manual_coefficients):
-            color = cmap(abs(categories_middle - i) / categories_middle)
-            ax.text(
-                self.lowest_x + self.gap * i - self.gap * 0.5, self.lowest_y - 0.5, f'{coef:g}',
-                fontsize=21,
-                color=color,
-                fontweight='bold',
-                horizontalalignment='center',
-                verticalalignment='center'
-            )
-
-    def render(self, fig: plt.Figure, circles: list[plt.Circle], frames: list[list[np.ndarray[tuple[Any, ...]]]],
-               filename: str):
-        cur_frame = [-3]
-
-        # Animation function. This is called for each frame, passing an entry in positions
-        def draw_frame(p: list[tuple[float, float]]):
-            # cur_frame[0] += 1
-            # if cur_frame[0] % 10 == 0 or cur_frame[0] >= frames_count:
-            #     print(f'Frame: {cur_frame[0]}/{frames_count}')
-            for i, c in enumerate(circles):
-                c.set_center(p[i])
-            return circles
-
-        anim = animation.FuncAnimation(
-            fig,
-            draw_frame,
-            frames=frames,
-            interval=self.interval * 1000,
-            blit=True
-        )
-
-        # print(f"Rendering {frames_count} frames at {fps} fps")
-
-        FFwriter = animation.FFMpegWriter(fps=self.fps)
-        anim.save(filename, writer=FFwriter)
-        plt.close(fig)
-
     @staticmethod
     def autumn_cmap(t: float):
-        return 255, int(round(t * 255)), 0
+        R, G, B = 255, int(round(t * 255)), 0
+        return B, G, R
 
     @staticmethod
     def viridis_cmap(t: float):
         idx = int(round(t * (len(_viridis_colors) - 1)))
-        return _viridis_colors[idx] * 255
+        R, G, B = _viridis_colors[idx] * 255
+        return B, G, R
+
+    def draw_background(self, space: pymunk.Space, image: np.ndarray):
+        len_categories = self.columns + 2
+
+        categories_middle = (len_categories - 1) / 2
+        for s in space.static_body.shapes:
+            if isinstance(s, pymunk.Segment):
+                idx = np.floor(abs(s.a.x - self.lowest_x - categories_middle * self.gap + 0.5 * self.gap) / self.gap)
+                color = self.autumn_cmap(idx / (categories_middle - 1))
+                cv2.line(
+                    image,
+                    (int(s.a.x * self.dpi), int((self.height - s.a.y) * self.dpi)),
+                    (int(s.b.x * self.dpi), int((self.height - s.b.y) * self.dpi)),
+                    color,
+                    int(s.radius / 2 * self.dpi)
+                )
+            elif isinstance(s, pymunk.Circle):
+                cv2.circle(
+                    image,
+                    (int(s.offset.x * self.dpi), int((self.height - s.offset.y) * self.dpi)),
+                    int(s.radius * self.dpi),
+                    (0, 0, 0), -1, lineType=cv2.LINE_AA
+                )
+
+        for i, coef in enumerate(self.manual_coefficients):
+            color = self.autumn_cmap(abs(categories_middle - i) / categories_middle)
+            text = f'{coef:g}'
+            font = cv2.FONT_HERSHEY_SCRIPT_SIMPLEX
+            font_scale = 0.57
+            thickness = 2
+
+            text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
+
+            pos = (
+                int((self.lowest_x + self.gap * i - self.gap * 0.5) * self.dpi - text_size[0] / 2) + 1,
+                int((self.height - (self.lowest_y - 0.5)) * self.dpi + text_size[1] / 2)
+            )
+            cv2.putText(image, text, pos, font, font_scale, color, thickness)
 
     def prepare_ball_colors(self, ball_category: list[int], len_categories: int) -> list[tuple[int, int, int]]:
         ball_colors = list()
         categories_middle = (len_categories - 1) / 2
         for i, category in enumerate(ball_category):
             t = (abs(category - 1 - categories_middle) / categories_middle)
-            R, G, B = self.viridis_cmap(t)
-            ball_colors.append((B, G, R))
+            ball_colors.append(self.viridis_cmap(t))
         return ball_colors
 
-    def write_frames(self, writer: cv2.VideoWriter, frames: list[list[np.ndarray[tuple[Any, ...]]]],
-                     ball_colors: list[tuple[int, int, int]], width: int, height: int, background_path: str = None):
+    def write_frames(self, writer: cv2.VideoWriter, width: int, height: int,
+                     frames: list[list[np.ndarray[tuple[Any, ...]]]], space: pymunk.Space,
+                     ball_colors: list[tuple[int, int, int]], background_path: str = None):
         if not writer.isOpened():
             writer.release()
             raise RuntimeError("cv2.VideoWriter failed to open")
         if background_path is None:
-            background_path = galton_assets_folder_path / "background.png"
-        if not os.path.exists(background_path):
-            self.save_background(background_path)
+            background = np.full((height, width, 3), (172, 146, 140), dtype=np.uint8)
+        else:
+            background = cv2.resize(cv2.imread(background_path), (width, height))
 
-        background = cv2.imread(background_path)
+        self.draw_background(space, background)
         cv2.putText(background, str(len(ball_colors)), (7, 80), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 255, 255), 2,
                     cv2.LINE_AA)
         for circle in frames:
@@ -371,23 +335,13 @@ class PhysicsSimulation:
 
         writer.release()
 
-    def render_opencv(self, frames: list[list[np.ndarray[tuple[Any, ...]]]], ball_colors: list[tuple[int, int, int]],
-                      filename: str, background_path: str = None):
+    def render_opencv(self, filename: str, *args):
         width, height = int(self.width * self.dpi), int(self.height * self.dpi)
 
         with OpencvCustomWriter(self.fps, width, height, filename) as writer:
-            self.write_frames(writer, frames, ball_colors, width, height, background_path)
+            self.write_frames(writer, width, height, *args)
 
-    def save_background(self, filename: str):
-        space, balls = self.setup_space(1)
-        ball_collisions_data, ball_collisions_list = self.prepare_ball_collisions_data(balls)
-        self.set_pre_solve_for_balls_collisions(space, ball_collisions_data)
-        positions, ball_category, categories_count = self.simulate(space, balls)
-        fig, ax = self.prepare_figure()
-        self.prepare_background(ax, space, len(categories_count))
-        plt.savefig(filename)
-
-    def run(self, balls_count: int = 1) -> tuple[float, str, float]:
+    def run(self, balls_count: int = 1, background_path: str = None) -> tuple[float, str, float]:
         t = time.monotonic()
 
         space, balls = self.setup_space(balls_count)
@@ -403,7 +357,7 @@ class PhysicsSimulation:
         frames = positions[::self.subsampling]
         ball_colors = self.prepare_ball_colors(ball_category, len(categories_count))
 
-        self.render_opencv(frames, ball_colors, filename)
+        self.render_opencv(filename, frames, space, ball_colors, background_path)
 
         main_logger.info(
             f"Galton simulation completed in {time.monotonic() - t:.3f} seconds" +
@@ -422,7 +376,7 @@ class PhysicsSimulation:
         frames = positions[::self.subsampling]
         ball_colors = self.prepare_ball_colors(ball_category, len(categories_count))
 
-        self.render_opencv(frames, ball_colors, filename)
+        self.render_opencv(filename, frames, space, ball_colors)
 
 
 if __name__ == '__main__':
@@ -430,5 +384,5 @@ if __name__ == '__main__':
     # physics_simulation.save_background(galton_folder_path / "background.png")
     paths = ["0" * (16 - i) + "1" * i for i in range(17)]
     paths = [int(p, 2) for p in paths]
-    physics_simulation.run(222)
+    physics_simulation.run(1, "../data/tmp.png")
     # physics_simulation.run_predefined(paths)

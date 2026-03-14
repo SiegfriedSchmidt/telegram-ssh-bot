@@ -28,5 +28,4 @@ galton_videos_folder_path = data_folder_path / "galton"
 blackjack_videos_folder_path = data_folder_path / "blackjack"
 
 fonts_folder_path = assets_folder_path / "fonts"
-galton_assets_folder_path = assets_folder_path / "galton"
 blackjack_assets_folder_path = assets_folder_path / "blackjack"
