@@ -1,20 +1,22 @@
 import os
 from pathlib import Path
 
-bot_version = '0.2.1v beta'
+bot_version = '0.2.2v beta'
 
 secret_folder_path = Path(os.environ.get("SECRET_FOLDER_PATH", "./.secret"))
 data_folder_path = Path(os.environ.get("DATA_FOLDER_PATH", "./data"))
 assets_folder_path = Path(os.environ.get("ASSETS_FOLDER_PATH", "./assets"))
+migrations_folder_path = Path(os.environ.get("MIGRATIONS_FOLDER_PATH", "./migrations"))
 
-if not os.path.exists(secret_folder_path):
-    secret_folder_path = '../' / secret_folder_path
-if not os.path.exists(secret_folder_path):
-    secret_folder_path = '../' / secret_folder_path
-if not os.path.exists(data_folder_path):
-    data_folder_path = '../' / data_folder_path
-if not os.path.exists(assets_folder_path):
-    assets_folder_path = '../' / assets_folder_path
+for _ in range(2):
+    if not os.path.exists(secret_folder_path):
+        secret_folder_path = '../' / secret_folder_path
+    if not os.path.exists(data_folder_path):
+        data_folder_path = '../' / data_folder_path
+    if not os.path.exists(assets_folder_path):
+        assets_folder_path = '../' / assets_folder_path
+    if not os.path.exists(migrations_folder_path):
+        migrations_folder_path = '../' / migrations_folder_path
 
 keys_folder_path = secret_folder_path / ".ssh_keys"
 settings_file_path = secret_folder_path / "settings.json"

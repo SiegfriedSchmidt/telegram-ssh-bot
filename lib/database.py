@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 from typing import Optional
 from lib.config_reader import config
 from lib.logger import peewee_logger
-from lib.init import database_file_path
+from lib.init import database_file_path, migrations_folder_path
 from lib.models import StatsType
 from lib.storage import storage
 from lib.utils.utils import used_today
+from peewee_migrate import Router
 from peewee import *
 
 db = SqliteDatabase(database_file_path)
@@ -20,6 +21,7 @@ class User(BaseModel):
     username = CharField(unique=True, primary_key=True)
     daily_prize_time = DateTimeField(default=datetime(1980, 1, 1))
     mine_attempt_time = DateTimeField(default=datetime(1980, 1, 1))
+    galton_background_path = CharField(max_length=256, null=True)
 
 
 class Stats(BaseModel):
@@ -68,7 +70,12 @@ class Transaction(BaseModel):
 
 
 db.connect()
-# db.drop_tables([User, Stats, Block, Transaction])
+
+# run migrations
+router = Router(db, migrate_dir=migrations_folder_path)
+router.run()
+
+# create tables
 db.create_tables([User, Stats, Block, Transaction])
 
 peewee_logger.info("Connected to database.")
@@ -111,6 +118,19 @@ def get_daily_amount_for_user(username: str) -> int:
     )
 
     return int(total) if total is not None else 0
+
+
+def get_galton_background_path(username: str) -> str | None:
+    user = User.get_or_none(username=username)
+    if user is None:
+        return None
+    return user.galton_background_path
+
+
+def set_galton_background_path(username: str, path: str) -> None:
+    user: User = User.get_or_create(username=username)[0]
+    user.galton_background_path = path
+    user.save()
 
 
 def get_total_daily_amount() -> int:
@@ -262,3 +282,7 @@ def get_blocks(offset: Optional[int] = None, limit: Optional[int] = None, ascend
 
 def get_blocks_count() -> int:
     return Block.select().count()
+
+
+if __name__ == '__main__':
+    router.create('add_galton_background_path')

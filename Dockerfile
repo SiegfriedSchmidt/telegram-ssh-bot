@@ -42,7 +42,11 @@ RUN addgroup --gid 1001 --system app && \
 USER app
 STOPSIGNAL SIGINT
 
-ENV MPLCONFIGDIR=/home/app/.config/matplotlib
+ENV MPLCONFIGDIR=/home/app/.config/matplotlib \
+    SECRET_FOLDER_PATH=/app/secret \
+    DATA_FOLDER_PATH=/app/data \
+    ASSETS_FOLDER_PATH=/app/assets \
+    MIGRATIONS_FOLDER_PATH=/app/migrations
 
 COPY . /app
 ENTRYPOINT ["python3", "main.py"]
