@@ -104,7 +104,7 @@ async def send(message: types.Message, state: FSMContext):
 
 @router.message(Command("tx"))
 async def tx_cmd(message: types.Message, command: CommandObject, ledger: Ledger):
-    args = get_args(command, 4, 4)
+    args = get_args(command, 4)
     if not args[2].isdecimal():
         return await message.answer('Invalid type of arguments.')
 

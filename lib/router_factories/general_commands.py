@@ -149,9 +149,13 @@ def create_router():
         elif len(args) == 2 and args[0].isdecimal():
             amount = args[0]
             to_user = args[1]
+        elif len(args) == 2 and args[1].isdecimal():
+            amount = args[1]
+            to_user = args[0]
         else:
             return await message.answer('Invalid syntax!')
 
+        to_user = to_user.replace("@", "").strip()
         from_user = message.from_user.username
         if from_user == to_user:
             return await message.answer("You can't transfer to yourself!")
@@ -305,7 +309,7 @@ def create_router():
         if stats is None:
             return await message.answer(f"No statistic for {username} found!")
 
-        blackjack_winrate = f"{stats.blackjack_win / stats.blackjack_all:.1%}" if stats.blackjack_win != 0 else "inf"
+        blackjack_winrate = f"{stats.blackjack_win / stats.blackjack_all:.1%}" if stats.blackjack_all != 0 else "inf"
 
         lines = [
             f"<b>{username} stats:</b>",
