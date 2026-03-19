@@ -166,7 +166,7 @@ def create_router():
             await state.set_state(ConfirmationState.transfer_confirmation)
             await state.set_data({"to_user": to_user, "amount": amount})
             return await message.answer(
-                f"Are you sure you want to transfer {amount} to {'me' if is_user_me else 'nonexistent user'} (y/n)?"
+                f"Are you sure you want to transfer {amount} to {'me 👉👈' if is_user_me else 'nonexistent user'} (y/n)?"
             )
 
         ledger.record_transaction(from_user, to_user, amount, "transfer")
@@ -307,9 +307,13 @@ def create_router():
 
         stats = database.get_user_stats(username)
         if stats is None:
-            return await message.answer(f"No statistic for {username} found!")
+            if username != ledger.genesis_username:
+                return await message.answer(f"No statistic for {username} found!")
+            stats = database.Stats()
 
         blackjack_winrate = f"{stats.blackjack_win / stats.blackjack_all:.1%}" if stats.blackjack_all != 0 else "undefined"
+        balance = ledger.get_user_balance(username)
+        total_gain = ledger.get_user_total_gain(username)
 
         lines = [
             f"<b>{username} stats:</b>",
@@ -322,6 +326,9 @@ def create_router():
             f"Blackjack win rate: {blackjack_winrate}",
             f"Blocks mined: {database.get_user_blocks_count(username)}",
             f"Daily reward amount: {database.get_daily_amount_for_user(username)}",
+            f"Balance: {balance}",
+            f"Total gain: {total_gain}",
+            f"Total loss: {total_gain - balance}",
             f"Max balance recorded: {ledger.get_user_max_balance(username)}"
         ]
 
@@ -331,6 +338,8 @@ def create_router():
     async def global_stats_cmd(message: types.Message, ledger: Ledger):
         totals = database.get_total_stats()
         max_balance = ledger.get_all_max_balances()[1]
+        total_balance = sum(balance for _, balance in ledger.get_all_balances())
+        total_gain = sum(gain for _, gain in ledger.get_all_total_gains())
 
         blackjack_winrate = f"{totals["blackjack_win"] / totals["blackjack_all"]:.1%}" \
             if totals["blackjack_all"] != 0 else "undefined"
@@ -346,6 +355,9 @@ def create_router():
             f"Blackjack win rate: {blackjack_winrate}",
             f"Blocks mined: {database.get_total_users_blocks_count(ledger.genesis_username)}",
             f"Daily reward amount: {database.get_total_daily_amount()}",
+            f"Total balance: {total_balance}",
+            f"Total gain: {total_gain}",
+            f"Total loss: {total_gain - total_balance}",
             f"Max balance recorded ({max_balance[0]}): {max_balance[1]}"
         ]
 

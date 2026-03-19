@@ -72,6 +72,7 @@ class Ledger:
         self.__genesis_username = ""
         self.__balances: dict[str, Decimal] = dict()
         self.__max_balances: dict[str, Decimal] = dict()
+        self.__total_gain: dict[str, Decimal] = dict()
 
     @property
     def genesis_username(self) -> str:
@@ -97,9 +98,11 @@ class Ledger:
 
         if to_username not in self.__balances:
             self.__balances[to_username] = amount
+            self.__total_gain[to_username] = amount
             self.__max_balances[to_username] = self.__balances[to_username]
         else:
             self.__balances[to_username] += amount
+            self.__total_gain[to_username] += amount
             self.__max_balances[to_username] = max(self.__max_balances[to_username], self.__balances[to_username])
 
     def __update_balance_transactions(self, txs: list[Transaction]) -> None:
@@ -320,11 +323,17 @@ class Ledger:
     def get_user_max_balance(self, username: str) -> Decimal:
         return self.__max_balances.get(username, 0)
 
+    def get_user_total_gain(self, username: str) -> Decimal:
+        return self.__total_gain.get(username, 0)
+
     def get_all_balances(self):
         return sorted(list(self.__balances.items()), key=lambda item: item[1], reverse=True)
 
     def get_all_max_balances(self):
         return sorted(list(self.__max_balances.items()), key=lambda item: item[1], reverse=True)
+
+    def get_all_total_gains(self):
+        return sorted(list(self.__total_gain.items()), key=lambda item: item[1], reverse=True)
 
     def delete_pending_transactions(self) -> int:
         self.__revert_balance_transactions(database.get_pending_transactions(ascending=False))
