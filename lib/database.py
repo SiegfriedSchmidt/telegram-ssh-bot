@@ -2,10 +2,10 @@ from datetime import datetime, timedelta
 from typing import Optional
 from lib.config_reader import config
 from lib.logger import peewee_logger
-from lib.init import database_file_path, migrations_folder_path
+from lib.init import database_file_path
 from lib.models import StatsType
 from lib.storage import storage
-from lib.utils.utils import used_today
+from lib.utils.utils import used_today, from_iso
 from peewee import *
 
 db = SqliteDatabase(database_file_path)
@@ -43,7 +43,7 @@ class Block(BaseModel):
     block_hash = CharField(max_length=64, unique=True)
 
     def __str__(self):
-        return f'Block: {self.height}, miner: {self.miner}, nonce: {self.nonce}, hash: {self.block_hash[:16]}...'
+        return f'Block: {self.height}, miner: {self.miner}, nonce: {self.nonce}, hash: {self.block_hash[:16]}..., timestamp: {from_iso(str(self.timestamp))}'
 
     class Meta:
         indexes = (
@@ -232,11 +232,15 @@ def get_user_transactions(username: str, limit: Optional[int] = None) -> list[Tr
     )
 
 
-def get_transactions(offset: Optional[int] = None, limit: Optional[int] = None, ascending=False) -> list[Transaction]:
+def get_transactions(offset: Optional[int] = None, limit: Optional[int] = None, ascending=False, biggest=False) -> list[
+    Transaction]:
     transactions = (
         Transaction
         .select()
-        .order_by(Transaction.number.asc() if ascending else Transaction.number.desc())
+        .order_by(
+            Transaction.amount.desc() if biggest else
+            (Transaction.number.asc() if ascending else Transaction.number.desc())
+        )
         .offset(offset)
         .limit(limit)
     )
@@ -272,6 +276,18 @@ def get_block(height: int) -> Block | None:
 
 def get_transactions_count() -> int:
     return Transaction.select().count()
+
+
+def get_user_blocks(username: str, offset: Optional[int] = None, limit: Optional[int] = None, ascending=False) -> list[
+    Block]:
+    return list(
+        Block
+        .select()
+        .where(Block.miner == username)
+        .order_by(Block.height.asc() if ascending else Block.height.desc())
+        .offset(offset)
+        .limit(limit)
+    )
 
 
 def get_blocks(offset: Optional[int] = None, limit: Optional[int] = None, ascending=False) -> list[Block]:

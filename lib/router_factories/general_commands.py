@@ -26,7 +26,7 @@ from lib.states.blackjack_state import BlackjackState
 from lib.states.confirmation_state import ConfirmationState
 from lib.storage import storage
 from lib.temporal_storage import User
-from lib.utils.utils import get_args, large_respond, is_bot_admin
+from lib.utils.utils import get_args, large_respond, is_bot_admin, get_username_with_reply, from_iso
 
 
 def create_router():
@@ -197,11 +197,22 @@ def create_router():
     async def ledger_cmd(message: types.Message, command: CommandObject):
         txs_count = database.get_transactions_count()
 
-        args = get_args(command, 0, 2)
+        args = get_args(command, 0, 3)
+        biggest = False
+        if len(args) >= 1 and not args[0].isdigit():
+            if args[0] != "biggest":
+                return await message.answer(f'Invalid option "{args[0]}"!')
+            biggest = True
+            args.pop(0)
+
         limit = int(args[0]) if len(args) >= 1 else 50
         offset = txs_count - int(args[1]) if len(args) == 2 else None
 
-        txs = database.get_transactions(limit=limit, offset=offset)
+        if biggest:
+            if offset is None:
+                offset = 1
+
+        txs = database.get_transactions(limit=limit, offset=offset, biggest=biggest)
         return await large_respond(message, [f"<b>Ledger ({txs_count} transactions):</b>"] + txs, parse_mode='html')
 
     @router.message(Command("leaderboard"))
@@ -231,6 +242,24 @@ def create_router():
 
         blocks = database.get_blocks(limit=limit, offset=offset)
         return await large_respond(message, [f"<b>Blocks list ({blocks_count}):</b>"] + blocks, parse_mode='html')
+
+    @router.message(Command("user_blocks"))
+    async def user_blocks_cmd(message: types.Message, command: CommandObject):
+        args = get_args(command, 0, 3)
+        if len(args) >= 1 and not args[0].isdigit():
+            username = args[0]
+            args.pop(0)
+        else:
+            username = await get_username_with_reply(message)
+
+        blocks_count = database.get_user_blocks_count(username)
+        limit = int(args[0]) if len(args) >= 1 else 50
+        offset = blocks_count - int(args[1]) if len(args) == 2 else None
+
+        blocks = database.get_user_blocks(username, limit=limit, offset=offset)
+        return await large_respond(
+            message, [f"<b>Blocks {username} list ({blocks_count}):</b>"] + blocks, parse_mode='html'
+        )
 
     @router.message(Command("mine_block"))
     async def mine_block_cmd(message: types.Message, ledger: Ledger):
@@ -297,7 +326,7 @@ def create_router():
         txs = database.get_block_transactions(block, limit=50, ascending=False)
         lines = [
             f"<b>Block {block.height}</b>",
-            f"Timestamp: {block.timestamp}",
+            f"Timestamp: {from_iso(block.timestamp)}",
             f"Miner: {block.miner}",
             f"Nonce: {block.nonce}",
             f"Merkle root: {block.merkle_root}",
@@ -310,14 +339,7 @@ def create_router():
     @router.message(Command("user_stats"))
     async def user_stats_cmd(message: types.Message, command: CommandObject, ledger: Ledger):
         args = get_args(command, 0, 1)
-
-        if message.reply_to_message:
-            username = message.reply_to_message.from_user.username
-        elif len(args) == 1:
-            username = args[0]
-        else:
-            username = message.from_user.username
-
+        username = await get_username_with_reply(message, args[0] if len(args) == 1 else None)
         stats = database.get_user_stats(username)
         if stats is None:
             if username != ledger.genesis_username:
@@ -340,8 +362,8 @@ def create_router():
             f"Blocks mined: {database.get_user_blocks_count(username)}",
             f"Daily reward amount: {database.get_daily_amount_for_user(username)}",
             f"Balance: {balance}",
-            f"Total gain: {total_gain}",
-            f"Total loss: {total_gain - balance}",
+            # f"Total gain: {total_gain}",
+            # f"Total loss: {total_gain - balance}",
             f"Max balance recorded: {ledger.get_user_max_balance(username)}"
         ]
 
@@ -368,9 +390,9 @@ def create_router():
             f"Blackjack win rate: {blackjack_winrate}",
             f"Blocks mined: {database.get_total_users_blocks_count(ledger.genesis_username)}",
             f"Daily reward amount: {database.get_total_daily_amount()}",
-            f"Total balance: {total_balance}",
-            f"Total gain: {total_gain}",
-            f"Total loss: {total_gain - total_balance}",
+            # f"Total balance: {total_balance}",
+            # f"Total gain: {total_gain}",
+            # f"Total loss: {total_gain - total_balance}",
             f"Max balance recorded ({max_balance[0]}): {max_balance[1]}"
         ]
 

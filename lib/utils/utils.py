@@ -48,6 +48,10 @@ def remove_file(path: Path) -> int:
     return filesize
 
 
+def from_iso(timestamp: str) -> str:
+    return datetime.strftime(datetime.fromisoformat(timestamp), "%Y-%m-%d %H:%M:%S")
+
+
 def get_args(command: CommandObject, min_args=-1, max_args=-1) -> List[str]:
     args = command.args.split() if command.args else []
     args_count = len(args)
@@ -69,6 +73,17 @@ async def is_bot_admin(message: types.Message) -> bool:
         return False
     except TelegramAPIError:
         return False
+
+
+async def get_username_with_reply(message: types.Message, arg: str | None = None) -> str:
+    if message.reply_to_message:
+        username = message.reply_to_message.from_user.username
+    elif arg is not None:
+        username = arg
+    else:
+        username = message.from_user.username
+
+    return username
 
 
 def used_today(last_used: datetime, day_start_time: str) -> bool:
