@@ -148,6 +148,10 @@ class Blackjack:
         return filename
 
     def stand(self) -> tuple[str, BlackjackResultType]:
+        # check blackjack
+        if calculate_score(self.player_hand[:2]) == 21 and calculate_score(self.dealer_hand[:2]) != 21:
+            return self.write_image(self.render_hands(dealer_open=True)), BlackjackResultType.win
+
         player_score = calculate_score(self.player_hand)
         dealer_score = calculate_score(self.dealer_hand)
 

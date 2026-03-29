@@ -3,7 +3,6 @@ import os
 import time
 from io import BytesIO
 from aiogram import Router, types
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove
@@ -167,15 +166,15 @@ def create_router():
 
         return await message.answer(text)
 
-    @router.message(Command("del"))
-    async def del_cmd(message: types.Message):
-        if not message.reply_to_message:
-            return await message.answer("You need to reply to a message to delete.")
-
-        try:
-            return await message.reply_to_message.delete()
-        except TelegramBadRequest:
-            return await message.answer("I have no permission to delete this message.")
+    # @router.message(Command("del"))
+    # async def del_cmd(message: types.Message):
+    #     if not message.reply_to_message:
+    #         return await message.answer("You need to reply to a message to delete.")
+    #
+    #     try:
+    #         return await message.reply_to_message.delete()
+    #     except TelegramBadRequest:
+    #         return await message.answer("I have no permission to delete this message.")
 
     @router.message(Command("openconnect"))
     async def openconnect_cmd(message: types.Message, command: CommandObject, user: User):
