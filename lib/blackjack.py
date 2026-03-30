@@ -76,6 +76,11 @@ def calculate_score(hand: list[str]) -> int:
     return score
 
 
+def is_blackjack(hand: list[str]) -> bool:
+    first_two = {int(hand[0][1:]), int(hand[1][1:])}
+    return 1 in first_two and any(el in first_two for el in [11, 12, 13])
+
+
 class Blackjack:
     def __init__(self, ledger: Ledger, username: str, bet: str | int):
         self.deck: list[str] = list(cards.keys())
@@ -148,9 +153,17 @@ class Blackjack:
         return filename
 
     def stand(self) -> tuple[str, BlackjackResultType]:
-        # check blackjack
-        if calculate_score(self.player_hand[:2]) == 21 and calculate_score(self.dealer_hand[:2]) != 21:
-            return self.write_image(self.render_hands(dealer_open=True)), BlackjackResultType.win
+        # check blackjacks
+        player_blackjack = is_blackjack(self.player_hand)
+        dealer_blackjack = is_blackjack(self.dealer_hand)
+        if player_blackjack or dealer_blackjack:
+            if player_blackjack and dealer_blackjack:
+                result = BlackjackResultType.draw
+            elif player_blackjack:
+                result = BlackjackResultType.win
+            else:
+                result = BlackjackResultType.lose
+            return self.write_image(self.render_hands(dealer_open=True)), result
 
         player_score = calculate_score(self.player_hand)
         dealer_score = calculate_score(self.dealer_hand)
@@ -185,3 +198,7 @@ class Blackjack:
             draw_card(frame, get_pos(j), card, 1)
 
         return frame
+
+
+if __name__ == '__main__':
+    ...
