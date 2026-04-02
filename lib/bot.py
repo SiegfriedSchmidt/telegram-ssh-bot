@@ -20,16 +20,17 @@ from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
 from lib.ssh_manager import ssh_manager
 from lib.storage import storage
+from lib.utils.github_service import get_commits_message
 from lib.utils.message_factories import get_leaderboard
 from lib.utils.utils import clear_dir_contents
 
 nest_asyncio.apply()
 
 
-async def notification(message: str, bot: Bot):
+async def notification(message: str, bot: Bot, parse_mode=None):
     main_logger.info(message)
     if storage.notifications_enabled:
-        await bot.send_message(config.main_group_id, message, parse_mode=None)
+        await bot.send_message(config.main_group_id, message, parse_mode=parse_mode)
 
 
 async def on_day_start(bot: Bot, ledger: Ledger) -> None:
@@ -101,7 +102,13 @@ async def on_startup(bot: Bot, scheduler: AsyncIOScheduler, ledger: Ledger) -> N
                 nextcloud_running = True
         start_message += '' if nextcloud_running else " Nextcloud is NOT running. Launch it via '/up nextcloud'."
 
-    await notification(start_message, bot)
+    # show latest update
+    update_lines, latest_sha = await get_commits_message()
+    if update_lines is not None:
+        start_message += "\n\n" + "\n".join(update_lines)
+    storage.latest_github_commit_sha = latest_sha
+
+    await notification(start_message, bot, parse_mode="HTML")
 
 
 async def on_shutdown(bot: Bot, scheduler: AsyncIOScheduler) -> None:

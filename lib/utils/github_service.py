@@ -1,0 +1,71 @@
+import asyncio
+import aiohttp
+from dataclasses import dataclass
+from typing import Optional, Dict, List, Any, Tuple
+from lib.logger import main_logger
+from lib.storage import storage
+
+REPO_OWNER = "SiegfriedSchmidt"
+REPO_NAME = "telegram-ssh-bot"
+url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits"
+
+
+@dataclass
+class Commit:
+    sha: str
+    message: str
+
+
+async def get_commits() -> Optional[List[Dict[str, Any]]]:
+    params = {
+        "per_page": 10,
+        "page": 1
+    }
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url, params=params) as response:
+                if response.status == 200:
+                    commits = await response.json()
+                    if commits:
+                        return commits
+                else:
+                    main_logger.error(f"GitHub API error: {response.status}")
+                return None
+        except aiohttp.ClientError as e:
+            main_logger.error(f"Network error fetching commit: {e}")
+            return None
+
+
+def prepare_latest_commits(commits: List[Dict[str, Any]]) -> List[Commit]:
+    prepared_commits: List[Commit] = []
+    found = False
+    for commit in reversed(commits):
+        if found:
+            commit_info = commit.get("commit", {})
+            message = commit_info.get("message", "No message")
+            prepared_commits.append(Commit(sha=commit["sha"], message=message))
+        elif commit.get("sha", "") == storage.latest_github_commit_sha:
+            found = True
+
+    return list(reversed(prepared_commits))
+
+
+async def get_commits_message() -> Tuple[Optional[List[str]], str]:
+    raw_commits = await get_commits()
+    commits = prepare_latest_commits(raw_commits)
+    if len(commits) == 0:
+        return None, raw_commits[0].get("sha", "")
+
+    lines = [f"<b>Latest Update</b> {len(commits)} new commits:"]
+    for commit in commits:
+        lines.append(f"- {commit.sha[:7]}: {commit.message}")
+
+    return lines, commits[0].sha
+
+
+async def main():
+    print(await get_commits_message())
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

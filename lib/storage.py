@@ -24,6 +24,7 @@ class PersistentData:
     ffmpeg_use: bool = False
     ffmpeg_crf: FFMPEG_CRF = 23
     ffmpeg_preset: FFMPEG_PRESET = 'veryfast'
+    latest_github_commit_sha: str = ''
     # admin_ids: List[int] = field(default_factory=list)
 
 
