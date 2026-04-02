@@ -11,17 +11,24 @@ class OpencvCustomWriter:
         self.width = width
         self.height = height
         self.filename = filename
+        self.writer: cv2.VideoWriter | None = None
         self.video_temp: Path | None = None
 
     def __enter__(self) -> cv2.VideoWriter:
         if storage.ffmpeg_use:
             self.video_temp = Path(self.filename).parent / f"temp_{randint(0, 1 << 31)}.mkv"
-            return cv2.VideoWriter(self.video_temp, cv2.VideoWriter.fourcc(*'MJPG'), self.fps,
-                                   (self.width, self.height))
+            self.writer = cv2.VideoWriter(self.video_temp, cv2.VideoWriter.fourcc(*'MJPG'), self.fps,
+                                          (self.width, self.height))
         else:
-            return cv2.VideoWriter(self.filename, cv2.VideoWriter.fourcc(*'avc1'), self.fps, (self.width, self.height))
+            self.writer = cv2.VideoWriter(self.filename, cv2.VideoWriter.fourcc(*'avc1'), self.fps,
+                                          (self.width, self.height))
+
+        return self.writer
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.writer.release()
+        self.writer = None
+
         if self.video_temp is not None:
             subprocess.run([
                 'ffmpeg', '-y', '-i', self.video_temp,
