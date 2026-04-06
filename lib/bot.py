@@ -20,7 +20,7 @@ from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
 from lib.ssh_manager import ssh_manager
 from lib.storage import storage
-from lib.utils.github_service import get_commits_message
+from lib.api.github_api import get_commits_message
 from lib.utils.message_factories import get_leaderboard
 from lib.utils.utils import clear_dir_contents
 
