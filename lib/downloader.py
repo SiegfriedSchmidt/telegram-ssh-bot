@@ -1,9 +1,16 @@
+import os
 import yt_dlp
 from pathlib import Path
 from typing import Optional, Union, List, Tuple
 from lib.config_reader import config
 from lib.init import videos_folder_path
 from lib.logger import main_logger
+
+
+def yt_dlp_hook(d):
+    if d['status'] == 'finished':
+        pass
+        # main_logger.info('Done downloading, now post-processing ...')
 
 
 class Downloader:
@@ -43,7 +50,11 @@ class Downloader:
             "format": format_selector,
             "merge_output_format": "mp4",  # Force MP4 container
             "outtmpl": str(self.output_dir / "%(title)s.%(ext)s"),
+            "restrictfilenames": True,
+            "windowsfilenames": True,
             "noplaylist": True,  # Only download single videos by default
+            # "logger": main_logger,
+            "progress_hooks": [yt_dlp_hook],
         }
 
         if config.proxy_url:
@@ -55,13 +66,15 @@ class Downloader:
 
     @property
     def cookies(self) -> str:
-        return self.ydl_opts["cookies"]
+        return self.ydl_opts["cookiefile"]
 
     @cookies.setter
     def cookies(self, path: str | Path | None) -> None:
-        self.ydl_opts["cookies"] = path
+        if path is None:
+            self.ydl_opts.pop("cookiefile", "")
+        self.ydl_opts["cookiefile"] = path
 
-    def download(self, url: str) -> Tuple[Optional[Tuple[str, dict]], str]:
+    def download(self, url: str) -> Tuple[Optional[Tuple[str, str, str, dict]], str]:
         """
         Download a single video by URL.
 
@@ -76,7 +89,9 @@ class Downloader:
                 info = ydl.extract_info(url, download=True)
                 # Construct final filename from yt-dlp info
                 filepath = ydl.prepare_filename(info)
-                return (filepath, info), ''
+                filename = os.path.basename(filepath)
+                server_url = f"{config.server_video_url}/{filename}" if config.server_video_url else ""
+                return (filepath, filename, server_url, info), ''
         except Exception as e:
             main_logger.error(f"[Downloader] Error downloading {url}: {e}", exc_info=e)
             return None, str(e)

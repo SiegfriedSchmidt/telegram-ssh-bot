@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     bot_token: SecretStr
     gemini_api_key: SecretStr
     otp_secret: SecretStr
+    server_video_url: str = ''
     proxy_url: str = ''
     day_start_time: str = '11:00'
 

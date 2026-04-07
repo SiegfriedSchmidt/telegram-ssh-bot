@@ -8,7 +8,7 @@ from lib.models import GainType, StatsType
 from lib.physics_simulation import PhysicsSimulation
 from lib.storage import storage
 from lib.temporal_storage import User
-from lib.utils.utils import run_in_thread
+from lib.utils.general_utils import run_in_thread
 
 gamble_multipliers = {
     GainType.loss: 0,

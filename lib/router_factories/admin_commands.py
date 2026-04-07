@@ -2,10 +2,11 @@ import asyncio
 import os
 import time
 from io import BytesIO
+from itertools import chain
 from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove
+from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove, InputMediaVideo
 from aiogram.utils.chat_action import ChatActionMiddleware
 from rcon.source import rcon
 from lib.api.geoip_api import geoip
@@ -22,8 +23,10 @@ from lib.ssh_manager import ssh_manager
 from lib.states.confirmation_state import ConfirmationState
 from lib.states.ssh_session_state import SSHSessionState
 from lib.states.switch_state import SwitchState
-from lib.utils.utils import get_args, large_respond, run_in_thread, get_dir_size, clear_dir_contents, remove_file, \
-    is_valid_mac_address, save_document
+from lib.utils.general_utils import run_in_thread, get_dir_size, clear_dir_contents, \
+    remove_file, \
+    is_valid_mac_address
+from lib.utils.message_utils import get_args, save_document, large_respond
 
 
 def create_router():
@@ -260,11 +263,14 @@ def create_router():
         if error:
             return await answer.edit_text(f"Download failed: {error}")
 
-        filepath, info = result
-        filename = os.path.basename(filepath)
-        video = FSInputFile(filepath, filename=filename)
-        await answer.delete()
-        return await message.answer_video(video, caption=filename)
+        filepath, filename, server_url, info = result
+        if server_url:
+            media = InputMediaVideo(media=server_url, caption=filename, supports_streaming=True)
+        else:
+            video = FSInputFile(filepath, filename=filename)
+            media = InputMediaVideo(media=video, caption=filename)
+
+        return await answer.edit_media(media)
 
     @router.message(Command("clear_videos"))
     async def clear_videos_cmd(message: types.Message, state: FSMContext):
@@ -278,8 +284,8 @@ def create_router():
     async def clear_videos(message: types.Message, state: FSMContext):
         if message.text.lower() == "y":
             files = clear_dir_contents(videos_folder_path)
-            text = '\n'.join(map(lambda t: f"{t[0]}: {round(t[1] / 1024 / 1024, 1)} MB", files))
-            await message.answer(f'Files deleted:\n{text}')
+            text = map(lambda t: f"{t[0]}: {round(t[1] / 1024 / 1024, 1)} MB", files)
+            await large_respond(message, chain(("Files deleted:",), text))
         else:
             await message.answer('abort')
         return await state.clear()

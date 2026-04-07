@@ -1,55 +1,12 @@
 import asyncio
-import os
-import re
-from datetime import datetime, time, timedelta
-from io import BytesIO
 from pathlib import Path
-from typing import List, Iterable, Tuple, Protocol, Union, runtime_checkable
+from typing import List, runtime_checkable, Protocol, Union, Iterable
 from aiogram import types
 from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import CommandObject
 from aiogram.types import ChatMemberAdministrator, ChatMemberOwner
 
-
-def get_file_from_str(string: str, filename: str) -> BytesIO:
-    file = BytesIO(str(string).encode("utf-8"))
-    file.name = filename
-    return file
-
-
-def get_dir_size(path: Path | str):
-    total = 0
-    with os.scandir(path) as it:
-        for entry in it:
-            if entry.is_file():
-                total += entry.stat().st_size
-            elif entry.is_dir():
-                total += get_dir_size(entry.path)
-    return total
-
-
-def clear_dir_contents(path: Path | str) -> List[Tuple[str, int]]:
-    files: List[Tuple[str, int]] = []
-    with os.scandir(path) as it:
-        for entry in it:
-            if entry.is_file():
-                files.append((entry.name, entry.stat().st_size))
-                os.remove(entry.path)
-            elif entry.is_dir():
-                files.extend(clear_dir_contents(entry.path))
-    return files
-
-
-def remove_file(path: Path) -> int:
-    if not path.is_file():
-        raise FileNotFoundError()
-    filesize = path.stat().st_size
-    os.remove(path)
-    return filesize
-
-
-def from_iso(timestamp: str) -> str:
-    return datetime.strftime(datetime.fromisoformat(timestamp), "%Y-%m-%d %H:%M:%S")
+from lib.utils.general_utils import clean_username
 
 
 def get_args(command: CommandObject, min_args=-1, max_args=-1) -> List[str]:
@@ -84,10 +41,6 @@ async def save_document(message: types.Message, path: str | Path) -> None:
         f.write(downloaded_file.read())
 
 
-def clean_username(username: str) -> str:
-    return username.replace("@", "").strip()
-
-
 async def get_username_with_reply(message: types.Message, arg: str | None = None) -> str:
     if message.reply_to_message:
         username = message.reply_to_message.from_user.username
@@ -97,42 +50,6 @@ async def get_username_with_reply(message: types.Message, arg: str | None = None
         username = message.from_user.username
 
     return username
-
-
-def used_today(last_used: datetime, day_start_time: str) -> bool:
-    hour, minute = map(int, day_start_time.split(":"))
-    start_time = time(hour, minute)
-
-    now = datetime.now()
-
-    # Construct today's start time
-    today_start = datetime.combine(now.date(), start_time)
-
-    # Determine actual logical day start
-    if now < today_start:
-        # Day started yesterday
-        day_start = today_start - timedelta(days=1)
-    else:
-        # Day started today
-        day_start = today_start
-
-    day_end = day_start + timedelta(days=1)
-
-    return day_start <= last_used < day_end
-
-
-def is_valid_mac_address(mac: str) -> bool:
-    patterns = [
-        r'^[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}[:-]{1}[0-9A-Fa-f]{2}$',
-        r'^[0-9A-Fa-f]{12}$',
-        r'^[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}$',
-    ]
-    return any(re.match(pattern, mac) for pattern in patterns)
-
-
-async def run_in_thread(func, *args):
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, func, *args)
 
 
 @runtime_checkable

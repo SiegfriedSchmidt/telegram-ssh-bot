@@ -5,7 +5,7 @@ from lib.logger import peewee_logger
 from lib.init import database_file_path
 from lib.models import StatsType
 from lib.storage import storage
-from lib.utils.utils import used_today, from_iso
+from lib.utils.general_utils import used_today, from_iso
 from peewee import *
 
 db = SqliteDatabase(database_file_path)

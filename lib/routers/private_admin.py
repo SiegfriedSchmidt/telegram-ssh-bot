@@ -9,7 +9,7 @@ from lib.ledger import Ledger
 from lib.router_factories import admin_commands, ssh_session, general_commands
 from lib.states.confirmation_state import ConfirmationState
 from lib.storage import storage, PersistentData
-from lib.utils.utils import get_args
+from lib.utils.message_utils import get_args
 
 router = Router()
 router.message.filter(

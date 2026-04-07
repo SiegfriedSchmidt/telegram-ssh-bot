@@ -27,8 +27,8 @@ from lib.states.confirmation_state import ConfirmationState
 from lib.storage import storage
 from lib.temporal_storage import User
 from lib.utils.message_factories import get_leaderboard
-from lib.utils.utils import get_args, large_respond, is_bot_admin, get_username_with_reply, from_iso, clean_username, \
-    run_in_thread
+from lib.utils.general_utils import from_iso, run_in_thread, clean_username
+from lib.utils.message_utils import get_args, is_bot_admin, get_username_with_reply, large_respond
 
 
 def create_router():

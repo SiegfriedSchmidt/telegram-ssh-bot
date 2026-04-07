@@ -10,7 +10,7 @@ from typing import BinaryIO
 from lib import database
 from lib.database import db, User, Transaction, Block
 from lib.logger import ledger_logger
-from lib.utils.utils import clean_username
+from lib.utils.general_utils import clean_username
 
 GENESIS_BLOCK_REWARD = Decimal(1e9)
 EMPTY_HASH = "0" * 64

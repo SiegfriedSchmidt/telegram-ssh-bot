@@ -4,7 +4,7 @@ from colorama import Fore
 from collections import deque
 import logging
 import sys
-from lib.utils.utils import get_file_from_str
+from lib.utils.general_utils import get_file_from_str
 
 
 class COLORS:

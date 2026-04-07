@@ -22,7 +22,7 @@ from lib.ssh_manager import ssh_manager
 from lib.storage import storage
 from lib.api.github_api import get_commits_message
 from lib.utils.message_factories import get_leaderboard
-from lib.utils.utils import clear_dir_contents
+from lib.utils.general_utils import clear_dir_contents
 
 nest_asyncio.apply()
 
