@@ -36,16 +36,23 @@ async def get_commits() -> Optional[List[Dict[str, Any]]]:
             return None
 
 
+def get_commit_obj(commit: dict) -> Commit:
+    commit_info = commit.get("commit", {})
+    message = commit_info.get("message", "No message")
+    return Commit(sha=commit["sha"], message=message)
+
+
 def prepare_latest_commits(commits: List[Dict[str, Any]]) -> List[Commit]:
     prepared_commits: List[Commit] = []
     found = False
     for commit in reversed(commits):
         if found:
-            commit_info = commit.get("commit", {})
-            message = commit_info.get("message", "No message")
-            prepared_commits.append(Commit(sha=commit["sha"], message=message))
+            prepared_commits.append(get_commit_obj(commit))
         elif commit.get("sha", "") == storage.latest_github_commit_sha:
             found = True
+
+    if not found:
+        return [get_commit_obj(commits[0])]
 
     return list(reversed(prepared_commits))
 

@@ -6,7 +6,7 @@ from itertools import chain
 from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove, InputMediaVideo
+from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove, InputMediaVideo, LinkPreviewOptions
 from aiogram.utils.chat_action import ChatActionMiddleware
 from rcon.source import rcon
 from lib.api.geoip_api import geoip
@@ -265,12 +265,21 @@ def create_router():
 
         filepath, filename, server_url, info = result
         if server_url:
-            media = InputMediaVideo(media=server_url, caption=filename, supports_streaming=True)
+            # media = InputMediaVideo(media=server_url, caption=filename, supports_streaming=True)
+            return await answer.edit_text(
+                filename,
+                link_preview_options=LinkPreviewOptions(
+                    url=server_url,
+                    is_disabled=False,
+                    prefer_large_media=True,
+                    show_above_text=True
+                ),
+                disable_web_page_preview=False
+            )
         else:
             video = FSInputFile(filepath, filename=filename)
             media = InputMediaVideo(media=video, caption=filename)
-
-        return await answer.edit_media(media)
+            return await answer.edit_media(media)
 
     @router.message(Command("clear_videos"))
     async def clear_videos_cmd(message: types.Message, state: FSMContext):
