@@ -7,6 +7,8 @@ from lib.ledger import Ledger
 from lib.middlewares.user_middleware import UserMiddleware
 from lib.states.confirmation_state import ConfirmationState
 from lib.temporal_storage import User, temporal_storage
+from lib.utils.command_utils import download_video
+from lib.utils.regex_utils import VIDEO_LINK_REGEX, get_video_link_from_text
 
 router = Router()
 router.message.middleware(UserMiddleware())
@@ -43,3 +45,9 @@ async def bipki_message(message: types.Message):
 @router.message(F.dice.emoji == "🎰")
 async def dice_message(message: types.Message, gambler: Gambler, user: User):
     await gambler.gamble(message, user)
+
+
+@router.message(F.text.regexp(VIDEO_LINK_REGEX))
+async def video_link_message(message: types.Message):
+    link = get_video_link_from_text(message.text)
+    await download_video(message, link)

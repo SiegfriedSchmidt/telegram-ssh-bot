@@ -6,7 +6,7 @@ from itertools import chain
 from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove, InputMediaVideo, LinkPreviewOptions
+from aiogram.types import FSInputFile, BufferedInputFile, ReplyKeyboardRemove
 from aiogram.utils.chat_action import ChatActionMiddleware
 from rcon.source import rcon
 from lib.api.geoip_api import geoip
@@ -23,9 +23,10 @@ from lib.ssh_manager import ssh_manager
 from lib.states.confirmation_state import ConfirmationState
 from lib.states.ssh_session_state import SSHSessionState
 from lib.states.switch_state import SwitchState
+from lib.utils.command_utils import download_video
 from lib.utils.general_utils import run_in_thread, get_dir_size, clear_dir_contents, \
-    remove_file, \
-    is_valid_mac_address
+    remove_file
+from lib.utils.regex_utils import is_valid_mac_address
 from lib.utils.message_utils import get_args, save_document, large_respond
 
 
@@ -257,28 +258,7 @@ def create_router():
         else:
             return await message.answer('There is no url to download!')
 
-        answer = await message.answer("Downloading...")
-        result, error = await run_in_thread(downloader.download, url)
-        if error:
-            return await answer.edit_text(f"Download failed: {error}")
-
-        filepath, filename, server_url, info = result
-        if server_url:
-            # media = InputMediaVideo(media=server_url, caption=filename, supports_streaming=True)
-            return await answer.edit_text(
-                filename,
-                link_preview_options=LinkPreviewOptions(
-                    url=server_url,
-                    is_disabled=False,
-                    prefer_large_media=True,
-                    show_above_text=True
-                ),
-                disable_web_page_preview=False
-            )
-        else:
-            video = FSInputFile(filepath, filename=filename)
-            media = InputMediaVideo(media=video, caption=filename)
-            return await answer.edit_media(media)
+        return await download_video(message, url)
 
     @router.message(Command("clear_videos"))
     async def clear_videos_cmd(message: types.Message, state: FSMContext):
