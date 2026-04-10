@@ -14,7 +14,7 @@ from lib.config_reader import config
 from lib.gambler import Gambler
 from lib.init import tmp_folder_path, bot_version
 from lib.ledger import Ledger, LedgerError
-from lib.routers import public_commands, errors, group_admin, group_general, private_admin
+from lib.routers import public_commands, errors, group_admin, group_general, private_admin, inline_queries
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
@@ -141,7 +141,8 @@ async def main():
         public_commands.router,
         group_admin.router,
         group_general.router,
-        private_admin.router
+        private_admin.router,
+        inline_queries.router
     )
 
     await bot.delete_webhook(drop_pending_updates=True)

@@ -35,19 +35,20 @@ class Downloader:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         format_selector = (
-            # 1) BEST: Separate H.264 video + AAC audio
+            # Best: H.264 video + AAC audio, height <= 1080
             f"bestvideo[vcodec^=avc][height<={max_height}]+bestaudio[acodec^=mp4a]/"
-            # 2) BEST: Combined H.264/AAC file
+            # Combined H.264/AAC
             f"best[vcodec^=avc][acodec^=mp4a][height<={max_height}]/"
-            # 3) FALLBACK: Best H.264 video (any container/audio), merged with best audio
+            # Fallback: any H.264 video + best audio
             f"bestvideo[vcodec^=avc][height<={max_height}]+bestaudio/"
-            # 4) LAST RESORT: Any format that can be remuxed to MP4
+            # Last resort: any format <= max_height (still prefers lower res)
             f"best[height<={max_height}]/best"
         )
 
         # Default options for yt-dlp
         self.ydl_opts = {
             "format": format_selector,
+            "format_sort": ["codec:avc", "res", "fps", "hdr:0", "br"],
             "merge_output_format": "mp4",  # Force final container to MP4
             "postprocessors": [{  # Add a postprocessor to remux to MP4
                 "key": "FFmpegVideoConvertor",
