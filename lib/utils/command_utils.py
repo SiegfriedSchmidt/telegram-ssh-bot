@@ -20,7 +20,7 @@ async def download_video(message: types.Message, url: str):
     filesize = filepath.stat().st_size
 
     caption = f"{filename} {get_size_str(filesize)}{(' (optimized)' if optimized else '')}"
-    if server_url and filesize > storage.video_max_size:
+    if filesize > storage.video_max_size:
         # media = InputMediaVideo(media=server_url, caption=filename, supports_streaming=True)
         return await answer.edit_text(
             caption,
@@ -35,4 +35,4 @@ async def download_video(message: types.Message, url: str):
     else:
         video = FSInputFile(filepath, filename=filename)
         media = InputMediaVideo(media=video, caption=caption)
-        return await answer.edit_media(media)
+        return await answer.edit_media(media, reply_markup=get_link_keyboard(server_url))
