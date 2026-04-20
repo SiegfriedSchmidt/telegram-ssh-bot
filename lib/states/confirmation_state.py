@@ -9,3 +9,4 @@ class ConfirmationState(StatesGroup):
     transfer_confirmation = State()
     admin_call_confirmation = State()
     galton_background_confirmation = State()
+    change_llm_model_confirmation = State()

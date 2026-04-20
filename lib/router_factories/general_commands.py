@@ -14,11 +14,12 @@ from lib.config_reader import config
 from lib.init import galton_backgrounds_folder_path
 from lib.keyboards.blackjack_keyboard import get_blackjack_keyboard
 from lib.ledger import Ledger, BlockNotMined
-from lib.api.gemini_api import gemini_api
 from lib.api.joke_api import get_joke
 from lib.api.meme_api import get_meme
 from lib.api.geoip_api import geoip
 from lib.gambler import Gambler
+from lib.llms.general_llm import Dialog
+from lib.llms.openrouter import OpenrouterLLM
 from lib.middlewares.user_middleware import UserMiddleware
 from lib.physics_simulation import PhysicsSimulation
 from lib.roulette import render_roulette
@@ -78,15 +79,46 @@ def create_router():
         return None
 
     @router.message(Command("ask"))
-    async def ask_cmd(message: types.Message, command: CommandObject):
+    async def ask_cmd(message: types.Message, command: CommandObject, openrouter_llm: OpenrouterLLM):
         args = command.args
-        if not args:
-            return await message.answer("You need to specify a query.")
+        if args:
+            question = args
+        else:
+            if message.reply_to_message:
+                question = message.reply_to_message.text
+            else:
+                return await message.answer("No question to answer.")
 
-        answer = await message.answer('asking...')
-        response = await gemini_api.ask(args)
-        await large_respond(message, response)
-        return await answer.delete()
+        answer = await message.reply(f'asking {openrouter_llm.model}...')
+        dialog = Dialog()
+        dialog.add_user_message(question)
+
+        try:
+            response = await openrouter_llm.chat_complete(dialog)
+        finally:
+            await answer.delete()
+
+        return await large_respond(message, response)
+
+    @router.message(Command("change_llm_model"))
+    async def change_llm_model_cmd(message: types.Message, command: CommandObject, state: FSMContext,
+                                   openrouter_llm: OpenrouterLLM):
+        args = get_args(command, 1, 1)
+        model = args[0]
+        await state.set_state(ConfirmationState.change_llm_model_confirmation)
+        await state.set_data({"model": model})
+        await message.answer(f'Do you want to change llm model: "{openrouter_llm.model}" -> "{model}"? (y/n)')
+
+    @router.message(ConfirmationState.change_llm_model_confirmation)
+    async def change_llm_model(message: types.Message, state: FSMContext, openrouter_llm: OpenrouterLLM):
+        if message.text.lower() == "y":
+            state_data = await state.get_data()
+            model = state_data["model"]
+            openrouter_llm.model = model
+            await message.answer(f"Changed llm model to {model}!")
+        else:
+            await message.answer('abort')
+        return await state.clear()
 
     @router.message(Command("geoip"))
     async def geoip_cmd(message: types.Message, command: CommandObject):

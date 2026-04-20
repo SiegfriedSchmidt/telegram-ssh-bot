@@ -8,12 +8,14 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from lib.api.joke_api import get_joke
+from lib.asyncio_workers import AsyncioWorkers
 # from lib.api.meme_api import get_meme
 from lib.bot_commands import set_bot_commands
 from lib.config_reader import config
 from lib.gambler import Gambler
 from lib.init import tmp_folder_path, bot_version
 from lib.ledger import Ledger, LedgerError
+from lib.llms.openrouter import OpenrouterLLM
 from lib.routers import public_commands, errors, group_admin, group_general, private_admin, inline_queries
 from lib.logger import main_logger
 from lib.middlewares.access_middleware import AccessMiddleware
@@ -73,7 +75,7 @@ async def on_day_start(bot: Bot, ledger: Ledger) -> None:
     main_logger.info("Day start function executed.")
 
 
-async def on_startup(bot: Bot, scheduler: AsyncIOScheduler, ledger: Ledger) -> None:
+async def on_startup(bot: Bot, scheduler: AsyncIOScheduler, ledger: Ledger, asyncio_workers: AsyncioWorkers) -> None:
     # ledger
     me = await bot.get_me()
     ledger.genesis_username = me.username
@@ -89,6 +91,9 @@ async def on_startup(bot: Bot, scheduler: AsyncIOScheduler, ledger: Ledger) -> N
     scheduler.add_job(on_day_start, CronTrigger(hour=hour, minute=minute), args=(bot, ledger))
     scheduler.add_job(ledger.mine_block, IntervalTrigger(seconds=storage.mine_block_interval_seconds))
     scheduler.start()
+
+    # asyncio workers
+    asyncio_workers.start(1)
 
     # start message
     start_message = f"Bot {bot_version} started."
@@ -149,13 +154,20 @@ async def main():
     await set_bot_commands(bot)
 
     # init shared classes
+    # TODO: shared class union, change name for api keys, move gemini api
     scheduler = AsyncIOScheduler()
     ledger = Ledger(storage.mine_block_reward)
     gambler = Gambler(ledger)
+    asyncio_workers = AsyncioWorkers()
+    openrouter_llm = OpenrouterLLM(config.gemini_api_key, asyncio_workers)
 
     await dp.start_polling(
         bot, allowed_updates=dp.resolve_used_update_types(),
-        scheduler=scheduler, ledger=ledger, gambler=gambler
+        scheduler=scheduler,
+        ledger=ledger,
+        gambler=gambler,
+        asyncio_workers=asyncio_workers,
+        openrouter_llm=openrouter_llm
     )
 
 
