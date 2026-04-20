@@ -199,6 +199,26 @@ class PhysicsSimulation:
         Var = float(E2) - E ** 2
         return E, Var
 
+    @staticmethod
+    def plot_binomial(x, y):
+        plt.figure(figsize=(10, 6))
+        plt.bar(x, y, alpha=0.7, color='steelblue', edgecolor='black')
+
+        plt.xlabel('category', fontsize=12)
+        plt.ylabel('Probability', fontsize=12)
+        plt.title('Binomial Distribution', fontsize=14)
+        plt.grid(True, alpha=0.3, axis='y')
+        plt.xticks(x)
+        plt.ylim(0, 0.21)
+
+        for i, (xi, yi) in enumerate(zip(x, y)):
+            if yi > 0.001:
+                plt.text(xi, yi + 0.005, f'{yi:.3f}',
+                         ha='center', va='bottom', fontsize=9)
+
+        plt.tight_layout()
+        plt.show()
+
     def compute_probabilities(self, categories_count: list[int]):
         categories_count = np.array(categories_count)
         resolved_count = np.sum(categories_count)
@@ -222,6 +242,11 @@ class PhysicsSimulation:
         print(self.manual_coefficients * bin_probabilities)
         coef_E, coef_Var = self.calculate_dist_params(bin_probabilities, self.manual_coefficients)
         bin_probabilities = list(map(float, bin_probabilities))
+        for i in range(self.columns + 2):
+            idx = i - self.columns // 2 - 1
+            print(idx, bin_probabilities[i])
+
+        self.plot_binomial(np.arange(-self.columns // 2, self.columns // 2 + 2, 1), bin_probabilities)
         manual_coefficients = list(map(float, self.manual_coefficients))
         print(f"{manual_coefficients=}\n{bin_probabilities=}\n{coef_E=}\n{coef_Var=}\n{bin_E=}\n{bin_Var=}")
 
