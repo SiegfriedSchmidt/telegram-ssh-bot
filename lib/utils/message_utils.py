@@ -1,12 +1,7 @@
 import asyncio
-from pathlib import Path
 from typing import List, runtime_checkable, Protocol, Union, Iterable
 from aiogram import types
-from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import CommandObject
-from aiogram.types import ChatMemberAdministrator, ChatMemberOwner
-
-from lib.utils.general_utils import clean_username
 
 
 def get_args(command: CommandObject, min_args=-1, max_args=-1) -> List[str]:
@@ -18,38 +13,6 @@ def get_args(command: CommandObject, min_args=-1, max_args=-1) -> List[str]:
         raise RuntimeError(f"Too many arguments {args_count} > {max_args}.")
 
     return args
-
-
-async def is_bot_admin(message: types.Message) -> bool:
-    try:
-        bot = message.bot
-        member = await bot.get_chat_member(message.chat.id, bot.id)
-        if isinstance(member, (ChatMemberAdministrator, ChatMemberOwner)):
-            return True
-
-        return False
-    except TelegramAPIError:
-        return False
-
-
-async def save_document(message: types.Message, path: str | Path) -> None:
-    doc = message.reply_to_message.document
-    file = await message.bot.get_file(doc.file_id)
-    downloaded_file = await message.bot.download_file(file.file_path)
-
-    with open(path, "wb") as f:
-        f.write(downloaded_file.read())
-
-
-async def get_username_with_reply(message: types.Message, arg: str | None = None) -> str:
-    if message.reply_to_message:
-        username = message.reply_to_message.from_user.username
-    elif arg is not None:
-        username = clean_username(arg)
-    else:
-        username = message.from_user.username
-
-    return username
 
 
 @runtime_checkable

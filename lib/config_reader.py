@@ -10,16 +10,12 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(json_file=settings_file_path, json_file_encoding='utf-8', extra='allow')
     hosts: List[HostModel]
     main_host: SecretStr
+    bot_project_name: str
     main_group_id: int
     group_ids: List[int]
     admin_ids: List[int]
-    notification_ids: List[int]
     bot_token: SecretStr
-    gemini_api_key: SecretStr
-    otp_secret: SecretStr
-    server_video_url: str = ''
     proxy_url: str = ''
-    day_start_time: str = '11:00'
 
     @classmethod
     def settings_customise_sources(

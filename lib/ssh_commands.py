@@ -7,7 +7,7 @@ from lib.config_reader import config
 from lib.init import keys_folder_path
 from lib.logger import ssh_logger
 from lib.models import HostModel
-
+# TODO: asyncssh
 
 class SSHCommands:
     def __init__(self, host: HostModel):
@@ -49,11 +49,11 @@ class SSHCommands:
         result, error = self.run_single_command(f"cd {self.proj}/{project_name} && docker compose down")
         return error
 
-    def update(self) -> str:
+    def update(self, project_name: str) -> str:
         bot_update_log_file = "/tmp/bot_update.log"
         self.run_single_command(f"""
 nohup sh -c '
-    cd {self.proj}/telegram-ssh-bot &&
+    cd {self.proj}/{project_name} &&
     docker compose pull &&
     docker compose down &&
     docker compose up -d

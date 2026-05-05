@@ -1,33 +1,15 @@
 import json
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Set, get_origin, Literal
+from typing import get_origin
 from datetime import datetime
 from lib.init import persistent_file_path
-
-FFMPEG_CRF = Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
-45, 46, 47, 48, 49, 50, 51]
-FFMPEG_PRESET = Literal['fast', 'veryfast', 'medium', 'slow', 'veryslow']
 
 
 @dataclass
 class PersistentData:
     notifications_enabled: bool = True
     startup_docker_checks: bool = True
-    mine_block_interval_seconds: int = 600
-    mine_block_reward: int = 2000
-    mine_block_user_timeout: int = 300
-    mine_block_user_attempts: int = 16
-    galton_max_concurrent_per_user: int = 2
-    ffmpeg_use: bool = False
-    ffmpeg_crf: FFMPEG_CRF = 23
-    ffmpeg_preset: FFMPEG_PRESET = 'veryfast'
-    latest_github_commit_sha: str = ''
-    optimize: bool = True
-    video_max_size: int = 40 * 2 ** 20
-    # admin_ids: List[int] = field(default_factory=list)
 
 
 class Storage(PersistentData):

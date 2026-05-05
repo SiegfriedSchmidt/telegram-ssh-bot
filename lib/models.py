@@ -33,40 +33,9 @@ class HostModel(BaseModel):
 
 
 class UserModel(BaseModel):
-    username: str
     host: str
-    nonce: int
-    gamble_bet: int
-    galton_bet: int
-    blackjack_bet: int
-    galton_balls: int
-    galton_running_count: int
 
 
 class TerminalType(str, BaseEnum):
     text = 'text'
     image = 'image'
-
-
-class BlackjackResultType(str, BaseEnum):
-    win = 'win'
-    draw = 'draw'
-    lose = 'lose'
-    bust = 'bust'
-    surrender = 'surrender'
-
-
-class GainType(str, BaseEnum):
-    big_jackpot = 'big_jackpot'
-    jackpot = 'jackpot'
-    nice_win = 'nice_win'
-    loss = 'loss'
-
-
-class StatsType(str, BaseEnum):
-    prizes = 'prizes'
-    mine = 'mine'
-    gamble = 'gamble'
-    galton = 'galton'
-    blackjack_win = 'blackjack_win'
-    blackjack_all = 'blackjack_all'
