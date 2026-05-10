@@ -56,7 +56,10 @@ async def stats_cmd(message: types.Message, user: User):
     file = BufferedInputFile(table_containers_image.read(), filename="img.png")
 
     await answer.delete()
-    await message.answer_photo(file, caption=f'Stats {time.strftime("%Y-%m-%d %H:%M:%S")}')
+    await message.answer_photo(
+        file, caption=f'Stats <b>{user.host}</b> {time.strftime("%Y-%m-%d %H:%M:%S")}',
+        parse_mode="html"
+    )
 
 
 @router.message(Command("projects"))
