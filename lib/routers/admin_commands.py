@@ -30,6 +30,12 @@ router.message.middleware(UserMiddleware())
 router.callback_query.middleware(UserMiddleware())
 
 
+# react on docker
+@router.message(F.text.lower().contains("docker") | F.text.lower().contains("докер") | (F.sticker.emoji == "🐳"))
+async def docker_message(message: types.Message):
+    await message.react([types.ReactionTypeEmoji(emoji='🐳')])
+
+
 @router.message(Command("h"))
 async def h_cmd(message: types.Message):
     await message.answer(text_bot_admin_commands)
