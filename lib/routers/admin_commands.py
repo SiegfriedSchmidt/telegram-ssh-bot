@@ -14,10 +14,11 @@ from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
 from lib.middlewares.user_middleware import UserMiddleware
 from lib.models import TerminalType
-from lib.temporal_storage import User
+from lib.ssh_commands import SSHCommands
 from lib.ssh_manager import ssh_manager
 from lib.states.confirmation_state import ConfirmationState
 from lib.states.ssh_session_state import SSHSessionState
+from lib.temporal_storage import User
 from lib.utils.general_utils import run_in_thread
 from lib.utils.regex_utils import is_valid_mac_address
 from lib.utils.message_utils import get_args, large_respond
@@ -42,9 +43,9 @@ async def h_cmd(message: types.Message):
 
 
 @router.message(Command("stats"))
-async def stats_cmd(message: types.Message, user: User):
+async def stats_cmd(message: types.Message, user: User, ssh: SSHCommands):
     answer = await message.answer("gathering statistics...")
-    containers_ps, containers_stats, ram, cpu, uptime = await run_in_thread(ssh_manager[user.host].get_stats)
+    containers_ps, containers_stats, ram, cpu, uptime = await run_in_thread(ssh.get_stats)
 
     containers_data = {}
     for c in containers_ps:
@@ -69,43 +70,43 @@ async def stats_cmd(message: types.Message, user: User):
 
 
 @router.message(Command("projects"))
-async def projects_cmd(message: types.Message, user: User):
-    docker_projects = ssh_manager[user.host].get_docker_projects()
+async def projects_cmd(message: types.Message, ssh: SSHCommands):
+    docker_projects = ssh.get_docker_projects()
     await message.answer('\n'.join(docker_projects))
 
 
 @router.message(Command("up"))
-async def up_cmd(message: types.Message, command: CommandObject, user: User):
+async def up_cmd(message: types.Message, command: CommandObject, ssh: SSHCommands):
     args = get_args(command, 1, 1)
-    error = ssh_manager[user.host].up_project(args[0])
+    error = ssh.up_project(args[0])
     if error:
         return await message.answer(error)
     return await message.answer('good')
 
 
 @router.message(Command("down"))
-async def down_cmd(message: types.Message, command: CommandObject, user: User):
+async def down_cmd(message: types.Message, command: CommandObject, ssh: SSHCommands):
     args = get_args(command, 1, 1)
     if args[0] == config.bot_project_name:
         return await message.answer("Nah, you won't do that!")
 
-    error = ssh_manager[user.host].down_project(args[0])
+    error = ssh.down_project(args[0])
     if error:
         return await message.answer(error)
     return await message.answer('good')
 
 
 @router.message(Command("prune"))
-async def prune_cmd(message: types.Message, user: User):
-    result = ssh_manager[user.host].docker_prune()
+async def prune_cmd(message: types.Message, ssh: SSHCommands):
+    result = ssh.docker_prune()
     return await large_respond(message, result)
 
 
 @router.message(Command("update"))
-async def update_cmd(message: types.Message, command: CommandObject, user: User, state: FSMContext):
+async def update_cmd(message: types.Message, command: CommandObject, ssh: SSHCommands, state: FSMContext):
     args = get_args(command, 0, 1)
     project = args[0] if len(args) > 0 else config.bot_project_name
-    all_projects = ssh_manager[user.host].get_docker_projects()
+    all_projects = ssh.get_docker_projects()
     if project not in all_projects:
         return await message.answer(f"Project {project} not found!")
 
@@ -115,16 +116,16 @@ async def update_cmd(message: types.Message, command: CommandObject, user: User,
 
 
 @router.message(ConfirmationState.update_confirmation)
-async def update(message: types.Message, user: User, state: FSMContext):
+async def update(message: types.Message, ssh: SSHCommands, state: FSMContext):
     if message.text == "y":
         await message.answer('performing image update...')
         state_data = await state.get_data()
-        bot_update_log_file = ssh_manager[user.host].update(state_data["project"])
+        bot_update_log_file = ssh.update(state_data["project"])
 
         async def callback(text: str):
             await large_respond(message, text)
 
-        asyncio.create_task(ssh_manager[user.host].follow_file(bot_update_log_file, callback, 5))
+        asyncio.create_task(ssh.follow_file(bot_update_log_file, callback, 5))
     else:
         await message.answer('abort')
     return await state.clear()
@@ -137,10 +138,10 @@ async def reboot_cmd(message: types.Message, state: FSMContext):
 
 
 @router.message(ConfirmationState.reboot_confirmation)
-async def reboot(message: types.Message, user: User, state: FSMContext):
+async def reboot(message: types.Message, ssh: SSHCommands, state: FSMContext):
     if message.text.lower() == "bipki":
         await message.answer('performing reboot...')
-        ssh_manager[user.host].reboot()
+        ssh.reboot()
     else:
         await message.answer('abort')
     return await state.clear()
@@ -153,20 +154,20 @@ async def logs_cmd(message: types.Message):
 
 
 @router.message(Command("curl"))
-async def curl_cmd(message: types.Message, user: User, command: CommandObject):
-    result, error = ssh_manager[user.host].curl(command.args)
+async def curl_cmd(message: types.Message, ssh: SSHCommands, command: CommandObject):
+    result, error = ssh.curl(command.args)
     if not result:
         return await message.answer(error)
     return await message.answer(result)
 
 
 @router.message(Command("openconnect"))
-async def openconnect_cmd(message: types.Message, command: CommandObject, user: User):
+async def openconnect_cmd(message: types.Message, command: CommandObject, ssh: SSHCommands):
     args = get_args(command, 1, 1)
     if args[0] not in ['status', 'restart', 'stop', 'start']:
         return await message.answer('invalid syntax, openconnect status|restart|stop|start')
 
-    result, error = ssh_manager[user.host].openconnect(args[0])
+    result, error = ssh.openconnect(args[0])
     if not result:
         return await large_respond(message, error)
     return await large_respond(message, result)
@@ -229,39 +230,39 @@ async def switch(callback: types.CallbackQuery, callback_data: SwitchHostCallbac
 
 
 @router.message(Command("wol"))
-async def wol_cmd(message: types.Message, command: CommandObject, user: User):
+async def wol_cmd(message: types.Message, command: CommandObject, ssh: SSHCommands):
     args = get_args(command, 1, 1)
     if not is_valid_mac_address(args[0]):
         return await message.answer('invalid syntax, wakeonlan {mac address}')
 
-    result, error = ssh_manager[user.host].wakeonlan(args[0])
+    result, error = ssh.wakeonlan(args[0])
     if not result:
         return await large_respond(message, error)
     return await large_respond(message, result)
 
 
 @router.message(Command("follow_file"))
-async def follow_file_cmd(message: types.Message, command: CommandObject, user: User):
+async def follow_file_cmd(message: types.Message, command: CommandObject, ssh: SSHCommands):
     args = get_args(command, 1, 1)
 
     async def callback(text: str):
         await message.answer(text)
 
     location = args[0]
-    asyncio.create_task(ssh_manager[user.host].follow_file(location, callback))
+    asyncio.create_task(ssh.follow_file(location, callback))
     return await message.answer(f'File "{location}" following activated! To deactivate do /unfollow_file')
 
 
 @router.message(Command("unfollow_file"))
-async def unfollow_file_cmd(message: types.Message, user: User):
-    if not ssh_manager[user.host].following_file:
+async def unfollow_file_cmd(message: types.Message, ssh: SSHCommands):
+    if not ssh.following_file:
         return await message.answer('You are not following any file right now!')
-    ssh_manager[user.host].unfollow()
+    ssh.unfollow()
     return await message.answer(f'File following deactivated!')
 
 
 @router.message(Command("rcon_follow"))
-async def rcon_follow_cmd(message: types.Message, user: User):
+async def rcon_follow_cmd(message: types.Message, user: User, ssh: SSHCommands):
     rcon_settings = ssh_manager.get_host(user.host).rcon
     if rcon_settings is None:
         return await message.answer("RCON settings not set!")
@@ -282,7 +283,7 @@ async def rcon_follow_cmd(message: types.Message, user: User):
         if len(lines) > 0:
             await large_respond(message, lines)
 
-    asyncio.create_task(ssh_manager[user.host].follow_file(rcon_settings.rcon_logs_path, callback))
+    asyncio.create_task(ssh.follow_file(rcon_settings.rcon_logs_path, callback))
     return await message.answer(f'Rcon following activated! To deactivate do /unfollow_file')
 
 

@@ -1,6 +1,7 @@
 from aiogram import BaseMiddleware
 from aiogram.types import Message, User
 from typing import Callable, Dict, Any, Awaitable
+from lib.ssh_manager import ssh_manager
 from lib.temporal_storage import temporal_storage
 
 
@@ -12,5 +13,7 @@ class UserMiddleware(BaseMiddleware):
             data: Dict[str, Any]
     ) -> Any:
         user_data: User = data['event_from_user']
-        data['user'] = temporal_storage.get_user(user_data.id)
+        user = temporal_storage.get_user(user_data.id)
+        data['user'] = user
+        data['ssh'] = ssh_manager[user.host]
         await handler(event, data)
