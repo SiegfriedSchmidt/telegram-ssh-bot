@@ -32,6 +32,17 @@ class HostModel(BaseModel):
     rcon: RconModel | None = None
 
 
+class DockerUpdateModel(BaseModel):
+    host: str
+    project_name: str
+
+    def __str__(self) -> str:
+        return f'{self.host}-{self.project_name}'
+
+    def to_str(self) -> str:
+        return str(self)
+
+
 class UserModel(BaseModel):
     host: str
 

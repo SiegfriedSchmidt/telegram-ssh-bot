@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, field
 from pathlib import Path
 from typing import get_origin
 from datetime import datetime
@@ -10,6 +10,8 @@ from lib.init import persistent_file_path
 class PersistentData:
     notifications_enabled: bool = True
     startup_docker_checks: bool = True
+    docker_image_update_check_interval_seconds: int = 300
+    docker_updates_hashes: dict[str, str] = field(default_factory=dict)
 
 
 class Storage(PersistentData):
@@ -35,6 +37,8 @@ class Storage(PersistentData):
             expected_type = self.__field_types.get(key)
             if expected_type is set and isinstance(value, list):
                 setattr(self, key, set(value))
+            elif expected_type is dict and isinstance(value, dict):
+                setattr(self, key, dict(value))
             elif expected_type is datetime and isinstance(value, str):
                 setattr(self, key, datetime.fromisoformat(value))
             else:

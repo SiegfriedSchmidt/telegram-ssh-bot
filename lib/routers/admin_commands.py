@@ -117,10 +117,11 @@ async def update_cmd(message: types.Message, command: CommandObject, ssh: SSHCom
 
 @router.message(ConfirmationState.update_confirmation)
 async def update(message: types.Message, ssh: SSHCommands, state: FSMContext):
+    project_name = (await state.get_data())["project"]
+    await state.clear()
     if message.text == "y":
-        await message.answer('performing image update...')
-        state_data = await state.get_data()
-        bot_update_log_file = ssh.update(state_data["project"])
+        await message.answer('performing project update...')
+        bot_update_log_file = ssh.update(project_name)
 
         async def callback(text: str):
             await large_respond(message, text)
@@ -128,7 +129,6 @@ async def update(message: types.Message, ssh: SSHCommands, state: FSMContext):
         asyncio.create_task(ssh.follow_file(bot_update_log_file, callback, 5))
     else:
         await message.answer('abort')
-    return await state.clear()
 
 
 @router.message(Command("reboot"))

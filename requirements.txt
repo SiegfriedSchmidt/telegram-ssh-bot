@@ -5,6 +5,7 @@ aiohttp==3.13.5
 aiohttp_socks==0.11.0
 aiosignal==1.4.0
 annotated-types==0.7.0
+APScheduler==3.11.2
 attrs==26.1.0
 bcrypt==5.0.0
 certifi==2026.4.22
@@ -41,5 +42,6 @@ rcon==2.4.9
 six==1.17.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
+tzlocal==5.3.1
 wcwidth==0.7.0
 yarl==1.23.0

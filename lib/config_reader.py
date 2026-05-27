@@ -1,9 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, JsonConfigSettingsSource
 from pydantic import SecretStr
-from typing import Type, Tuple, List
-
+from typing import Type, Tuple, List, Dict
 from lib.init import settings_file_path
-from lib.models import HostModel
+from lib.models import HostModel, DockerUpdateModel
 
 
 class Settings(BaseSettings):
@@ -15,6 +14,7 @@ class Settings(BaseSettings):
     group_ids: List[int]
     admin_ids: List[int]
     bot_token: SecretStr
+    docker_updates: Dict[str, List[DockerUpdateModel]]
     proxy_url: str = ''
 
     @classmethod
