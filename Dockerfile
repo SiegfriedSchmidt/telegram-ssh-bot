@@ -1,36 +1,46 @@
-FROM python:3.13.2-slim AS builder
+FROM python:3.14.5-slim AS builder
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=0 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-editable --no-dev
+
+# =====================================================
+
+FROM python:3.14.5-slim
 
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-COPY requirements.txt .
-RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
-
-FROM python:3.13.2-slim
-
-WORKDIR /app
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
-
-COPY --from=builder /app/wheels /wheels
-RUN pip install --no-cache-dir /wheels/* && \
-    rm -rf /wheels
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/main.py /app/
+COPY --from=builder /app/lib /app/lib
+COPY --from=builder /app/assets /app/assets
 
 RUN addgroup --gid 1001 --system app && \
     adduser --uid 1001 --system --group --home /home/app --shell /bin/bash app && \
     mkdir -p /home/app/.config/matplotlib && \
-    chown -R app:app /home/app
+    chown -R app:app /home/app /app
 
 USER app
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+ENV MPLCONFIGDIR=/home/app/.config/matplotlib
+ENV SECRET_FOLDER_PATH=/app/secret
+ENV DATA_FOLDER_PATH=/app/data
+ENV ASSETS_FOLDER_PATH=/app/assets
+
 STOPSIGNAL SIGINT
 
-ENV MPLCONFIGDIR=/home/app/.config/matplotlib \
-    SECRET_FOLDER_PATH=/app/secret \
-    DATA_FOLDER_PATH=/app/data \
-    ASSETS_FOLDER_PATH=/app/assets
-
-COPY . /app
-ENTRYPOINT ["python3", "main.py"]
+ENTRYPOINT ["/app/.venv/bin/python", "main.py"]

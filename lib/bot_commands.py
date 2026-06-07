@@ -8,6 +8,7 @@ bot_admin_commands = [
     BotCommand(command='up', description='{project_name:required} - start docker project'),
     BotCommand(command='down', description='{project_name:required} - stop docker project'),
     BotCommand(command='update', description='{project_name:optional} update bot image'),
+    BotCommand(command='access', description='{otp_code:required} get privileged access'),
     BotCommand(command='reboot', description='reboot machine'),
     BotCommand(command='prune', description='remove unused docker containers'),
     BotCommand(command='stats', description='host statistics'),

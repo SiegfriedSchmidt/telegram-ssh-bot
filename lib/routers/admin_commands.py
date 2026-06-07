@@ -13,6 +13,7 @@ from lib.keyboards.switch_host_keyboard import get_switch_host_keyboard
 from lib.logger import log_stream
 from lib.matplotlib_tables import create_table_matplotlib
 from lib.middlewares.user_middleware import UserMiddleware
+from lib.otp_manager import otp_manager, OTP_ACCESS_GRANTED_HOURS
 from lib.models import TerminalType
 from lib.ssh_commands import SSHCommands
 from lib.ssh_manager import ssh_manager
@@ -131,6 +132,15 @@ async def update(message: types.Message, ssh: SSHCommands, state: FSMContext):
         await message.answer('abort')
 
 
+@router.message(Command("access"))
+async def access_cmd(message: types.Message, command: CommandObject):
+    args = get_args(command, 1, 1)
+    result = otp_manager.authenticate(message.from_user.id, args[0])
+    if result:
+        return await message.answer(result)
+    return await message.answer(f'Access granted for {OTP_ACCESS_GRANTED_HOURS} hours.')
+
+
 @router.message(Command("reboot"))
 async def reboot_cmd(message: types.Message, state: FSMContext):
     await state.set_state(ConfirmationState.reboot_confirmation)
@@ -196,7 +206,7 @@ def stdout_callback_text_generator(message: types.Message):
     return stdout_callback
 
 
-@router.message(Command("activate"))
+@router.message(Command("activate"), flags={'otp': True})
 async def activate_cmd(message: types.Message, state: FSMContext, user: User, command: CommandObject):
     terminal_type = 'text'
     args = get_args(command, 0, 1)

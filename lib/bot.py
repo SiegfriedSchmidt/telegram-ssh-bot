@@ -1,5 +1,4 @@
 import asyncio
-import nest_asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -11,11 +10,10 @@ from lib.config_reader import config
 from lib.init import bot_version
 from lib.routers import public_commands, errors, admin_commands, ssh_session
 from lib.logger import main_logger
+from lib.middlewares.access_middleware import AccessMiddleware
 from lib.middlewares.logger_middleware import LoggerMiddleware
 from lib.ssh_manager import ssh_manager
 from lib.storage import storage
-
-nest_asyncio.apply()
 
 
 async def notification(message: str, bot: Bot, parse_mode=None):
@@ -99,6 +97,7 @@ async def main():
 
     # middlewares
     dp.message.middleware(LoggerMiddleware())
+    dp.message.middleware(AccessMiddleware())
 
     # routers
     dp.include_routers(

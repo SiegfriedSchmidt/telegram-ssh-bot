@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     group_ids: List[int]
     admin_ids: List[int]
     bot_token: SecretStr
+    otp_secret: SecretStr
     docker_updates: Dict[str, List[DockerUpdateModel]]
     proxy_url: str = ''
 
