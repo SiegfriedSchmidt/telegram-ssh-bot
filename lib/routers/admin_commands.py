@@ -23,6 +23,7 @@ from lib.temporal_storage import User
 from lib.utils.general_utils import run_in_thread
 from lib.utils.regex_utils import is_valid_mac_address
 from lib.utils.message_utils import get_args, large_respond
+from lib.api.geoip_api import geoip
 from lib.config_reader import config
 
 router = Router()
@@ -169,6 +170,37 @@ async def curl_cmd(message: types.Message, ssh: SSHCommands, command: CommandObj
     if not result:
         return await message.answer(error)
     return await message.answer(result)
+
+
+@router.message(Command("geoip"))
+async def geoip_cmd(message: types.Message, command: CommandObject):
+    args = get_args(command, 1, 1)
+
+    try:
+        json = await geoip(args[0])
+        text = '\n'.join(f"{key}: {val}" for key, val in json.items())
+    except Exception as e:
+        return await message.answer(str(e))
+    return await message.answer(text)
+
+
+@router.message(Command("check_ip"))
+async def check_ip_cmd(message: types.Message, ssh: SSHCommands):
+    response = ""
+    msg = await message.answer("checking ip...")
+    for url in ["eth0.me", "2ip.ru", "ifconfig.co", "ifconfig.me"]:
+        result, error = ssh.curl(url)
+        if not result:
+            break
+        ip = result.strip()
+        ip_info = await geoip(ip)
+        ip_info_text = '\n'.join(f"{key}: {val}" for key, val in ip_info.items())
+        response += f"<b>{url}: {ip}</b>\n\n{ip_info_text}\n\n"
+
+    if not response:
+        response = "no data"
+
+    return await msg.edit_text(response, parse_mode="html")
 
 
 @router.message(Command("openconnect"))

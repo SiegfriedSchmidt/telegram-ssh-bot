@@ -9,6 +9,8 @@ bot_admin_commands = [
     BotCommand(command='down', description='{project_name:required} - stop docker project'),
     BotCommand(command='update', description='{project_name:optional} update bot image'),
     BotCommand(command='access', description='{otp_code:required} get privileged access'),
+    BotCommand(command='geoip', description='{ip:required} - get geoip'),
+    BotCommand(command='check_ip', description='check ip'),
     BotCommand(command='reboot', description='reboot machine'),
     BotCommand(command='prune', description='remove unused docker containers'),
     BotCommand(command='stats', description='host statistics'),

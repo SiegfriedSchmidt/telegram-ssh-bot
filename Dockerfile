@@ -23,9 +23,9 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/main.py /app/
-COPY --from=builder /app/lib /app/lib
-COPY --from=builder /app/assets /app/assets
+COPY ./main.py /app/
+COPY ./lib /app/lib
+COPY ./assets /app/assets
 
 RUN addgroup --gid 1001 --system app && \
     adduser --uid 1001 --system --group --home /home/app --shell /bin/bash app && \
