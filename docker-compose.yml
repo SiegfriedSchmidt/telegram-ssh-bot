@@ -1,5 +1,5 @@
 services:
-  tg-ssh-bot:
+  telegram-ssh-bot:
     platform: linux/amd64
     build: .
     image: siegfriedschmidt/telegram-ssh-bot

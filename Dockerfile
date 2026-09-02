@@ -10,11 +10,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY pyproject.toml uv.lock ./
+
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-editable --no-dev
 
 # =====================================================
-
+# FINAL STAGE
+# =====================================================
 FROM python:3.14.5-slim
 
 WORKDIR /app
@@ -22,20 +24,21 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-COPY --from=builder /app/.venv /app/.venv
-COPY ./main.py /app/
-COPY ./lib /app/lib
-COPY ./assets /app/assets
-
+# 1. Create user, group, and config directories FIRST
 RUN addgroup --gid 1001 --system app && \
     adduser --uid 1001 --system --group --home /home/app --shell /bin/bash app && \
     mkdir -p /home/app/.config/matplotlib && \
-    chown -R app:app /home/app /app
+    chown -R app:app /home/app
+
+# 2. Copy files WITH --chown to avoid layer duplication
+COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --chown=app:app ./main.py /app/
+COPY --chown=app:app ./lib /app/lib
+COPY --chown=app:app ./assets /app/assets
 
 USER app
 
 ENV PATH="/app/.venv/bin:$PATH"
-
 ENV MPLCONFIGDIR=/home/app/.config/matplotlib
 ENV SECRET_FOLDER_PATH=/app/secret
 ENV DATA_FOLDER_PATH=/app/data
