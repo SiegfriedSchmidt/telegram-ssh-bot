@@ -12,6 +12,7 @@ bot_admin_commands = [
     BotCommand(command='geoip', description='{ip:required} - get geoip'),
     BotCommand(command='check_ip', description='check ip'),
     BotCommand(command='reboot', description='reboot machine'),
+    BotCommand(command='shutdown', description='shutdown machine'),
     BotCommand(command='prune', description='remove unused docker containers'),
     BotCommand(command='stats', description='host statistics'),
     BotCommand(command='logs', description='get logs'),

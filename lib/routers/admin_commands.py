@@ -150,12 +150,29 @@ async def reboot_cmd(message: types.Message, state: FSMContext):
 
 @router.message(ConfirmationState.reboot_confirmation)
 async def reboot(message: types.Message, ssh: SSHCommands, state: FSMContext):
+    await state.clear()
     if message.text.lower() == "bipki":
         await message.answer('performing reboot...')
         ssh.reboot()
     else:
         await message.answer('abort')
-    return await state.clear()
+
+
+@router.message(Command("shutdown"), flags={'otp': True})
+async def shutdown_cmd(message: types.Message, state: FSMContext):
+    await state.set_state(ConfirmationState.shutdown_confirmation)
+    return await message.answer('Do you want to continue (y/n)?')
+
+
+@router.message(ConfirmationState.shutdown_confirmation)
+async def shutdown(message: types.Message, ssh: SSHCommands, state: FSMContext):
+    await state.clear()
+    if message.text.lower() == "y":
+        await message.answer('performing shutdown...')
+        ssh.shutdown()
+    else:
+        await message.answer('abort')
+    return
 
 
 @router.message(Command("logs"))

@@ -11,5 +11,5 @@ def get_switch_host_keyboard(hosts: list[str]):
             callback_data=SwitchHostCallback(host=host)
         )
 
-    switch_host_keyboard_builder.adjust(len(hosts))
+    switch_host_keyboard_builder.adjust(3)
     return switch_host_keyboard_builder.as_markup()

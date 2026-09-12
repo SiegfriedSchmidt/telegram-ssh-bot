@@ -7,6 +7,8 @@ from lib.config_reader import config
 from lib.init import keys_folder_path
 from lib.logger import ssh_logger
 from lib.models import HostModel
+
+
 # TODO: asyncssh
 
 class SSHCommands:
@@ -66,6 +68,14 @@ nohup sh -c '
         result, error = self.run_single_command(f"""
         nohup sh -c '
             sudo reboot
+        ' >/tmp/bot_update.log 2>&1 &
+        """)
+        return result
+
+    def shutdown(self):
+        result, error = self.run_single_command(f"""
+        nohup sh -c '
+            sudo shutdown now
         ' >/tmp/bot_update.log 2>&1 &
         """)
         return result
